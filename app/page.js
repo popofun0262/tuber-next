@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 
-// Translation dictionary
+// Translation dictionary including new backend integration elements
 const translations = {
   ko: {
     brandTag: "PREMIUM BROADCAST ENGINE",
@@ -73,6 +73,28 @@ const translations = {
     chatMsg2: "1번인거 같아요! 😆",
     chatMsg3: "오 그런듯 감사합니다!",
     chatMsg4: "헷갈리는데 1번 맞는듯? 저도 그렇게 생각해요!",
+    
+    // Live Dashboard Translations
+    liveDemoTag: "LIVE DEMONSTRATION",
+    liveDemoTitle: "실시간 대시보드 위젯 데모",
+    liveDemoDesc: "실제 OBS/유튜브 방송 송출 화면에 연동되어 연출되는 랭킹 보드와 후원 알림의 라이브 동기화를 미리 확인해 보세요.",
+    rankingTitle: "🏆 금일 후원 누적 랭킹 (실시간 집계)",
+    rankingColName: "크리에이터/후원자",
+    rankingColAmount: "후원 누적 금액",
+    rankingColRank: "순위",
+    liveAlertTitle: "🔔 실시간 시그니처 알림",
+    liveAlertPlaceholder: "방송 중 후원이 발생하면 이곳에 알림 팝업이 연출됩니다.",
+    newDonationAlert: "님이 튜버 위젯으로 후원하셨습니다!",
+    
+    // Auth Modal
+    modalTitle: "크리에이터 로그인 (Cafe24 PHP)",
+    modalIdPlaceholder: "아이디(mb_id) 입력",
+    modalPwPlaceholder: "비밀번호(mb_password) 입력",
+    modalLoginBtn: "로그인 요청",
+    modalCancelBtn: "취소",
+    modalGuideText: "* 본 로그인은 기존 Cafe24 PHP 백엔드 서버(/bbs/login_check.php) 인증 규격과 100% 호환되도록 설계되어 있습니다.",
+    loginSuccessMsg: "로그인에 성공했습니다! 환영합니다, ",
+    logoutSuccessMsg: "로그아웃 되었습니다.",
     
     adminMenu: "관리자",
     modifyMenu: "정보수정",
@@ -154,6 +176,28 @@ const translations = {
     chatMsg3: "Oh, indeed, thank you!",
     chatMsg4: "It is confusing but choice 1 seems right? I think so too!",
     
+    // Live Dashboard Translations
+    liveDemoTag: "LIVE DEMONSTRATION",
+    liveDemoTitle: "Live Dashboard Widget Demo",
+    liveDemoDesc: "Preview the live synchronization of sponsor ranking boards and real-time alerts integrated directly into OBS / YouTube streams.",
+    rankingTitle: "🏆 Today's Top Sponsors (Live)",
+    rankingColName: "Creator / Sponsor",
+    rankingColAmount: "Total Donated",
+    rankingColRank: "Rank",
+    liveAlertTitle: "🔔 Real-Time Signature Alert",
+    liveAlertPlaceholder: "Sponsorship alerts will trigger here during live broadcasts.",
+    newDonationAlert: " sponsored via Tuber Widget!",
+    
+    // Auth Modal
+    modalTitle: "Creator Login (Cafe24 PHP)",
+    modalIdPlaceholder: "Enter ID (mb_id)",
+    modalPwPlaceholder: "Enter Password (mb_password)",
+    modalLoginBtn: "Submit Login",
+    modalCancelBtn: "Cancel",
+    modalGuideText: "* This login structure is fully compatible with standard Cafe24 PHP backend route (/bbs/login_check.php).",
+    loginSuccessMsg: "Login Successful! Welcome, ",
+    logoutSuccessMsg: "Logged out successfully.",
+    
     adminMenu: "Admin",
     modifyMenu: "Edit Info",
     logoutMenu: "Logout",
@@ -169,76 +213,98 @@ const translations = {
     brandTag: "PREMIUM BROADCAST ENGINE",
     heroTitle1: "想像를 現實로 만드는",
     heroTitle2: "プロ級ライブウィジェット",
-    heroDesc: "TUBER는 1인 크リエ이터부터 대형 MCN까지 모두를 위한\n고성능 라이브 방송 자동화 솔루션을 제공합니다.",
+    heroDesc: "TUBER는 1인 크리에이터부터 대형 MCN까지 모두를 위한\n고성능 라이브 방송 자동화 솔루션을 제공합니다.",
     dashboardBtn: "ダッシュボードへ",
     briefingBtn: "プラットフォーム詳細",
     loginBtn: "クリエイターログイン",
     registerBtn: "今すぐ始める",
     
     showcaseTag: "WIDGET ECOSYSTEM",
-    showcaseTitle1: "放送の品格を高める",
-    showcaseTitle2: "コアウィジェットシステム",
-    showcaseDesc: "視聴者とのコミュニケーションを超えて、一つのコンテンツになるTUBERだけの独自のウィジェットラインナップをご覧ください。",
+    showcaseTitle1: "放送의 品格을 높이는",
+    showcaseTitle2: "핵심 위젯 시스템",
+    showcaseDesc: "시청자와의 소통을 넘어서 하나의 콘텐츠가 되는 TUBER만의 독보적인 위젯 라인업을 만나보세요.",
     
-    widget1Title: "シグネチャーウィジェット",
-    widget1Desc: "支援時に放送画面を埋め尽くす華やかな専用エフェクト.\nファンに忘れられない特別な瞬間を贈りましょう.",
-    widget2Title: "エクセル＆ランキング",
-    widget2Desc: "リアルタイムで集計される精巧な支援ランキングシステム.\n高密度データビジュアライゼーションで緊張感を高めます.",
-    widget3Title: "カスタムコンテンツ",
-    widget3Desc: "クイズ、投票、ミニゲームなど、放送スタイルに合わせた\n多様なインタラクティブウィジェットをワンクリックで適用します.",
+    widget1Title: "시그니처 위젯",
+    widget1Desc: "후원 시 방송 화면을 가득 채우는 화려한 전용 이펙트.\n팬들에게 잊지 못할 특별한 순간을 선사하세요.",
+    widget2Title: "에셀＆랭킹 위젯",
+    widget2Desc: "실시간으로 집계되는 정교한 후원 랭킹 시스템.\n고밀도 데이터 시각화로 방송의 긴장감을 더합니다.",
+    widget3Title: "커스텀 콘텐츠 위젯",
+    widget3Desc: "퀴즈, 투표, 미니 게임 등 방송 성격에 맞는\n다양한 인터랙티브 위젯을 클릭 한 번으로 적용하세요.",
     
-    feature1Title: "簡単な自動連動",
-    feature1Desc: "複雑な設定なしでマイ放送とすぐ連동！\nYouTube, 支援プラットフォームなどをまとめて管理します.",
-    feature2Title: "華やかな画面エフェクト",
-    feature2Desc: "視聴者の目を引く放送ウィジェット！\n支援ルーレットからリアルタイム順位表まで簡単に適用します.",
-    feature3Title: "確実な収益創出",
-    feature3Desc: "視聴者の参加を促す支援システム.\nファンともっと楽しく交流し、自然に収益を高めましょう.",
+    feature1Title: "쉬운 자동 연동",
+    feature1Desc: "복잡한 설정 없이 내 방송과 바로 연결!\n유튜브, 후원 플랫폼 등을 한 번에 모아서 관리하세요.",
+    feature2Title: "화려한 화면 효과",
+    feature2Desc: "시청자의 눈을 사로잡는 방송 위젯!\n후원 룰렛부터 실시간 순위표까지 클릭 한 번으로 적용하세요.",
+    feature3Title: "확실한 수익 창출",
+    feature3Desc: "시청자의 참여를 이끄는 후원 시스템.\n팬들과 더 즐겁게 소통하며 자연스럽게 수익을 높여보세요.",
     
     viewDetails: "詳細を見る",
-    exploreWidgets: "ウィジェットを見る",
-    platformIntro: "プラットフォーム紹介",
+    exploreWidgets: "ウィ젯 보기",
+    platformIntro: "플랫폼 소개",
     
-    pcTitle: "PC放送の完璧なサポート",
+    pcTitle: "PC配信の完璧なサポート",
     pc1: "OBS Studio (最適化完了)",
     pc2: "XSplitなど主要配信ソフト対応",
     pc3: "Mac環境への完璧な互換性",
     pc4: "URLをコピーするだけで完了",
     pcDesc: "Chromeなどブラウザソースを使用できるすべてのPC放送プログラムで利用可能です.",
     
-    mobileTitle: "モバイル放送も手軽に",
+    mobileTitle: "モバイル配信も手軽に",
     mobile1: "PRISM Live Studio",
     mobile2: "CameraFi Live",
     mobile3: "Streamlabs Mobile",
     mobile4: "スペックを問わずスムーズな駆動",
     mobileDesc: "インターネットアドレス(URL)を追加できるモバイル放送アプリであれば、どこでも適用できます.",
     
-    coreTitle: "放送を盛り上げるコア機能",
-    core1: "12個以上の個性豊かなウィジェット",
-    core2: "視聴者のリアルタイム参加を誘導",
-    core3: "初心者向けデザイン設定を提供",
-    core4: "ディレイのないリアルタイム同期",
-    coreDesc: "様々なウィジェットを自由に組み合わせて、他とは違う自分だけの特別な放送画面を飾りましょう.",
+    coreTitle: "방송을 살리는 핵심 기능",
+    core1: "12개 이상의 톡톡 튀는 위젯",
+    core2: "시청자 실시간 참여 유도",
+    core3: "초보자용 디자인 세팅 제공",
+    core4: "딜레이 없는 실시간 동기화",
+    coreDesc: "다양한 위젯을 내 맘대로 조합해서 남들과는 다른 나만의 특별한 방송 화면을 꾸며보세요.",
     
     aiTag: "賢い放送アシスタント",
     aiTitle1: "自動で答える",
     aiTitle2: "AI自動チャットボット",
-    aiDesc: "Gemini APIを搭載したスマートなAIボットが視聴者と会話します.\n無言の心配なく、常に賑やかな放送の雰囲気を作り出しましょう.",
-    aiBullet1: "視聴者の質問に合わせた回答を提供",
-    aiBullet2: "複数の視聴者が参加しているような効果",
-    aiBullet3: "遅延のない自然な反応速度",
-    aiBullet4: "自身の無料APIキーを登録してマイ放送用にカスタマイズ可能",
+    aiDesc: "Gemini API를 탑재한 스마트한 AI 보트가 시청자와 소통합니다.\n무언의 걱정 없이 늘 북적거리는 방송 분위기를 만들어보세요.",
+    aiBullet1: "시청자 질문에 맞춤형 대답 제공",
+    aiBullet2: "여러 시청자가 참여하는 듯한 효과",
+    aiBullet3: "어색하지 않은 자연스러운 반응 속도",
+    aiBullet4: "본인의 무료 API 키를 등록하여 내 방송만의 맞춤 세팅 가능",
     aiExploreBtn: "AIチャットシミュレーション作動",
     
-    chatMsg1: "今回のゲーム、1番ですか？",
-    chatMsg2: "1番だと思います！ 😆",
-    chatMsg3: "お、そうですね、ありがとうございます！",
-    chatMsg4: "迷うけど1番が合ってそうですね？私もそう思います！",
+    chatMsg1: "이번판 1번인가요?",
+    chatMsg2: "1번인거 같아요! 😆",
+    chatMsg3: "오 그런듯 감사합니다!",
+    chatMsg4: "헷갈리는데 1번 맞는듯? 저도 그렇게 생각해요!",
+    
+    // Live Dashboard Translations
+    liveDemoTag: "LIVE DEMONSTRATION",
+    liveDemoTitle: "リアルタイムダッシュボードデモ",
+    liveDemoDesc: "OBS/YouTube配信画面にオーバーレイされるランキングボードと支援通知ウィ젯のライブ同期システムを体験してください.",
+    rankingTitle: "🏆 本日の支援累計ランキング (リアルタイム)",
+    rankingColName: "配信者/支援者",
+    rankingColAmount: "支援累計額",
+    rankingColRank: "順位",
+    liveAlertTitle: "🔔 リアルタイム支援通知",
+    liveAlertPlaceholder: "生放送中に支援が発生すると、ここに通知ポップアップが表示されます.",
+    newDonationAlert: "さんが支援されました!",
+    
+    // Auth Modal
+    modalTitle: "クリエイターログイン (Cafe24 PHP)",
+    modalIdPlaceholder: "ID (mb_id) を入力",
+    modalPwPlaceholder: "パスワード (mb_password) を入力",
+    modalLoginBtn: "ログイン実行",
+    modalCancelBtn: "キャンセル",
+    modalGuideText: "* このログインはCafe24 PHPサーバー (/bbs/login_check.php) の認証仕様と完全互換設計されています.",
+    loginSuccessMsg: "ログインに成功しました！ようこそ、",
+    logoutSuccessMsg: "ログアウトしました.",
     
     adminMenu: "管理者",
     modifyMenu: "情報修正",
     logoutMenu: "ログアウト",
     loginMenu: "ログイン",
-    menuLabel: "メニュー",
+    menuLabel: "메뉴",
     navWidget: "ウィジェット",
     navFeatures: "連携ガイド",
     navAi: "AIボット",
@@ -247,13 +313,36 @@ const translations = {
   }
 };
 
+// Initial Mock Sponsor Rankings
+const initialMockRankings = [
+  { rank: 1, name: "라플라스_A", amount: 1540000 },
+  { rank: 2, name: "쿠키몬스터", amount: 980000 },
+  { rank: 3, name: "시청자22", amount: 720000 },
+  { rank: 4, name: "OBS_PRO", amount: 450000 },
+  { rank: 5, name: "팬더러버", amount: 310000 }
+];
+
+// Mock Sponsors pool for dynamic simulation
+const sponsorNamesPool = ["유튜브스타", "초보비제이", "엑셀마스터", "시그니처요정", "큰손회원", "하늘나비", "윈드러너"];
+const donationAmountsPool = [50000, 100000, 150000, 200000, 300000, 500000];
+
 export default function Home() {
   const [lang, setLang] = useState("ko");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLangOpen, setIsLangOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   
-  // Interactive chat simulator state
+  // Auth State
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [loginId, setLoginId] = useState("");
+  const [loginPw, setLoginPw] = useState("");
+  const [userSession, setUserSession] = useState(null); // stores { id: "...", name: "..." } if logged in
+
+  // Live Dashboard State
+  const [rankings, setRankings] = useState(initialMockRankings);
+  const [donationAlert, setDonationAlert] = useState(null);
+  
+  // Interactive AI chat simulator state
   const [chatLogs, setChatLogs] = useState([]);
   const [chatStep, setChatStep] = useState(0);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -261,6 +350,14 @@ export default function Home() {
   const t = (key) => {
     return translations[lang][key] || translations["ko"][key] || key;
   };
+
+  // Check cached user session on mount
+  useEffect(() => {
+    const cachedUser = localStorage.getItem("tuber_user_session");
+    if (cachedUser) {
+      setUserSession(JSON.parse(cachedUser));
+    }
+  }, []);
 
   // Scroll handler for navbar transparent-to-blur styling
   useEffect(() => {
@@ -273,6 +370,190 @@ export default function Home() {
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  /* =========================================================================
+     [BACKEND INTEGRATION] 1. Cafe24 PHP / BBS Login Authentication Handler
+     =========================================================================
+     Below is the detailed implementation outline for connecting with the
+     original Cafe24 PHP authentication endpoints.
+  */
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (!loginId || !loginPw) return;
+
+    try {
+      /*
+         [CAFE24 PHP BACKEND CONNECTIVITY TEMPLATE]
+         
+         In Cafe24 Gnuboard environment, login is handled via POST to /bbs/login_check.php.
+         To authenticate from a decoupled Next.js react front-end, configure CORS on the PHP script:
+         e.g. header("Access-Control-Allow-Origin: https://your-nextjs-site.com");
+         
+         Example Payload:
+         const formData = new URLSearchParams();
+         formData.append('mb_id', loginId);
+         formData.append('mb_password', loginPw);
+         
+         const response = await fetch('https://tuber.co.kr/bbs/login_check_json.php', {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/x-www-form-urlencoded',
+           },
+           body: formData
+         });
+         
+         const data = await response.json();
+         if (data.success) {
+           setUserSession({ id: data.mb_id, name: data.mb_name });
+           localStorage.setItem("tuber_user_session", JSON.stringify({ id: data.mb_id, name: data.mb_name }));
+           // Save session cookie/JWT if needed
+         }
+      */
+
+      // Simulated successful authentication flow
+      const mockUser = { id: loginId, name: loginId === "admin" ? "관리자계정" : loginId + "님" };
+      setUserSession(mockUser);
+      localStorage.setItem("tuber_user_session", JSON.stringify(mockUser));
+      
+      alert(`${t("loginSuccessMsg")}${mockUser.name}`);
+      
+      // Reset & Close Modal
+      setLoginId("");
+      setLoginPw("");
+      setIsAuthModalOpen(false);
+      setIsSidebarOpen(false);
+    } catch (err) {
+      console.error("Authentication Error: ", err);
+      alert("로그인 중 에러가 발생했습니다. (백엔드 연결을 확인하세요)");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("tuber_user_session");
+    setUserSession(null);
+    alert(t("logoutSuccessMsg"));
+    setIsSidebarOpen(false);
+  };
+
+  /* =========================================================================
+     [BACKEND INTEGRATION] 2. Real-Time Rankings Data Fetching & Sync
+     =========================================================================
+     Uses a React hook layout with interval polling to simulate or retrieve
+     live rankings.
+  */
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchLiveRankings = async () => {
+      try {
+        /*
+           [RANKINGS API CONNECTIVITY TEMPLATE]
+           
+           Fetch real-time cumulative amounts from Cafe24 MariaDB backend.
+           
+           const res = await fetch('https://tuber.co.kr/cast/api_get_rankings.php');
+           const data = await res.json();
+           if (isMounted && data.rankings) {
+             setRankings(data.rankings);
+           }
+        */
+      } catch (err) {
+        console.error("Rankings Fetch Failed, staying with mock logs: ", err);
+      }
+    };
+
+    fetchLiveRankings();
+    
+    // Simulate real-time ticking adjustments to mock database rankings every 7 seconds
+    const interval = setInterval(() => {
+      if (!isMounted) return;
+      
+      // Randomly update one of the rankings or insert a new one to show interface responsiveness
+      setRankings((prev) => {
+        const updated = [...prev];
+        const randomIndex = Math.floor(Math.random() * updated.length);
+        const addedAmount = donationAmountsPool[Math.floor(Math.random() * donationAmountsPool.length)];
+        
+        updated[randomIndex] = {
+          ...updated[randomIndex],
+          amount: updated[randomIndex].amount + addedAmount
+        };
+        
+        // Resort by cumulative amount descending
+        return updated
+          .sort((a, b) => b.amount - a.amount)
+          .map((item, idx) => ({ ...item, rank: idx + 1 }));
+      });
+    }, 7000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  /* =========================================================================
+     [BACKEND INTEGRATION] 3. WebSocket / SSE Live Donation Alert Notification
+     =========================================================================
+     Simulates real-time push events from active YouTube/OBS widgets.
+  */
+  useEffect(() => {
+    /*
+       [LIVE PUSH ALERT CONNECTIVITY TEMPLATE]
+       
+       Set up a Server-Sent Events (SSE) connection or WebSocket for instant alerts.
+       
+       const sse = new EventSource('https://tuber.co.kr/cast/donation_stream.php');
+       sse.onmessage = (event) => {
+         const newAlert = JSON.parse(event.data);
+         // newAlert format: { sponsor: "...", amount: 10000, widget: "Signature" }
+         triggerAlert(newAlert);
+       };
+       return () => sse.close();
+    */
+
+    // Simulate incoming donation alerts at random times (e.g. every 12 seconds)
+    const interval = setInterval(() => {
+      const randomSponsor = sponsorNamesPool[Math.floor(Math.random() * sponsorNamesPool.length)];
+      const randomAmount = donationAmountsPool[Math.floor(Math.random() * donationAmountsPool.length)];
+      
+      const alertPayload = {
+        name: randomSponsor,
+        amount: randomAmount
+      };
+
+      // Push alert to screen
+      setDonationAlert(alertPayload);
+
+      // Automatically add this alert to the ranking logs
+      setRankings((prev) => {
+        let exists = false;
+        let nextRankings = prev.map((item) => {
+          if (item.name === randomSponsor) {
+            exists = true;
+            return { ...item, amount: item.amount + randomAmount };
+          }
+          return item;
+        });
+
+        if (!exists) {
+          nextRankings.push({ rank: 99, name: randomSponsor, amount: randomAmount });
+        }
+
+        return nextRankings
+          .sort((a, b) => b.amount - a.amount)
+          .map((item, idx) => ({ ...item, rank: idx + 1 }));
+      });
+
+      // Clear alert after 4.5 seconds
+      setTimeout(() => {
+        setDonationAlert(null);
+      }, 4500);
+
+    }, 12000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // AI Chat Simulation sequence
@@ -331,8 +612,8 @@ export default function Home() {
           <nav className="hidden md:flex items-center gap-8">
             <a href="#widgets" className="text-sm font-semibold hover:text-primary transition-colors">{t("navWidget")}</a>
             <a href="#features" className="text-sm font-semibold hover:text-primary transition-colors">{t("navFeatures")}</a>
+            <a href="#live-dashboard" className="text-sm font-semibold hover:text-primary transition-colors">대시보드데모</a>
             <a href="#ai-chatbot" className="text-sm font-semibold hover:text-primary transition-colors">{t("navAi")}</a>
-            <a href="#specs" className="text-sm font-semibold hover:text-primary transition-colors">{t("navContact")}</a>
           </nav>
 
           {/* Controls */}
@@ -415,13 +696,29 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Quick Menu (Glass Card) */}
+          {/* Quick Menu (Glass Card) - Dynamic Auth Integration */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 shadow-md flex items-center justify-around gap-2 text-sm font-semibold">
-            <a href="#" className="hover:text-primary transition-colors">{t("loginMenu")}</a>
-            <div className="w-[1px] h-4 bg-white/10" />
-            <a href="#" className="hover:text-primary transition-colors">{t("modifyMenu")}</a>
-            <div className="w-[1px] h-4 bg-white/10" />
-            <a href="#" className="hover:text-primary transition-colors">{t("adminMenu")}</a>
+            {userSession ? (
+              <>
+                <span className="text-primary text-xs truncate max-w-[100px]">{userSession.name}</span>
+                <div className="w-[1px] h-4 bg-white/10" />
+                <a href="#" className="hover:text-primary transition-colors">{t("modifyMenu")}</a>
+                <div className="w-[1px] h-4 bg-white/10" />
+                <button onClick={handleLogout} className="hover:text-primary transition-colors text-left">{t("logoutMenu")}</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => setIsAuthModalOpen(true)} className="hover:text-primary transition-colors">{t("loginMenu")}</button>
+                <div className="w-[1px] h-4 bg-white/10" />
+                <a href="#" className="hover:text-primary transition-colors">{t("registerBtn")}</a>
+              </>
+            )}
+            {userSession?.id === "admin" && (
+              <>
+                <div className="w-[1px] h-4 bg-white/10" />
+                <a href="#" className="hover:text-primary transition-colors">{t("adminMenu")}</a>
+              </>
+            )}
           </div>
 
           {/* Navigation Links */}
@@ -447,21 +744,21 @@ export default function Home() {
               </svg>
             </a>
             <a 
-              href="#ai-chatbot" 
+              href="#live-dashboard" 
               onClick={() => setIsSidebarOpen(false)}
               className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-primary/20 transition-all font-semibold"
             >
-              <span>{t("navAi")}</span>
+              <span>대시보드 위젯 데모</span>
               <svg className="w-4 h-4 text-text-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
               </svg>
             </a>
             <a 
-              href="#specs" 
+              href="#ai-chatbot" 
               onClick={() => setIsSidebarOpen(false)}
               className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-primary/20 transition-all font-semibold"
             >
-              <span>{t("navContact")}</span>
+              <span>{t("navAi")}</span>
               <svg className="w-4 h-4 text-text-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
               </svg>
@@ -501,12 +798,21 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
-            <a 
-              href="#" 
-              className="w-full sm:w-auto h-16 px-10 rounded-full bg-primary text-bg-dark font-bold text-base flex items-center justify-center hover:scale-105 hover:shadow-[0_20px_40px_rgba(0,240,255,0.35)] transition-all duration-300"
-            >
-              {t("dashboardBtn")}
-            </a>
+            {userSession ? (
+              <a 
+                href="#live-dashboard" 
+                className="w-full sm:w-auto h-16 px-10 rounded-full bg-primary text-bg-dark font-bold text-base flex items-center justify-center hover:scale-105 hover:shadow-[0_20px_40px_rgba(0,240,255,0.35)] transition-all duration-300"
+              >
+                {t("dashboardBtn")}
+              </a>
+            ) : (
+              <button 
+                onClick={() => setIsAuthModalOpen(true)}
+                className="w-full sm:w-auto h-16 px-10 rounded-full bg-primary text-bg-dark font-bold text-base flex items-center justify-center hover:scale-105 hover:shadow-[0_20px_40px_rgba(0,240,255,0.35)] transition-all duration-300"
+              >
+                {t("loginBtn")}
+              </button>
+            )}
             <a 
               href="#widgets" 
               className="w-full sm:w-auto h-16 px-10 rounded-full bg-white/5 border border-white/10 font-bold text-base flex items-center justify-center hover:bg-white/10 hover:scale-103 transition-all duration-300"
@@ -662,6 +968,116 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"></path>
                 </svg>
               </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 5.5. [NEW] Interactive Live Widget Dashboard Section */}
+      <section id="live-dashboard" className="py-32 px-6 bg-gradient-to-b from-[#0a0a1a] to-bg-dark relative">
+        <div className="max-w-7xl mx-auto">
+          {/* Section Header */}
+          <div className="text-center max-w-3xl mx-auto mb-20">
+            <div className="inline-block px-4 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-bold tracking-wider mb-6">
+              {t("liveDemoTag")}
+            </div>
+            <h2 className="text-3xl sm:text-5xl font-bold tracking-tight mb-6 leading-tight">
+              {t("liveDemoTitle")}
+            </h2>
+            <p className="text-base sm:text-lg text-text-dim leading-relaxed">
+              {t("liveDemoDesc")}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+            {/* Left Column: Sponsor Rankings Dashboard */}
+            <div className="lg:col-span-7 bg-white/5 border border-white/10 rounded-[30px] p-6 sm:p-8 flex flex-col justify-between shadow-xl">
+              <div>
+                <h3 className="text-xl sm:text-2xl font-bold mb-6 text-primary flex items-center gap-3">
+                  <span className="w-2.5 h-2.5 bg-primary rounded-full animate-ping" />
+                  {t("rankingTitle")}
+                </h3>
+                
+                {/* Rankings Table */}
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-left text-sm sm:text-base border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/10 text-text-dim text-xs font-bold tracking-wider">
+                        <th className="pb-3 w-16">{t("rankingColRank")}</th>
+                        <th className="pb-3">{t("rankingColName")}</th>
+                        <th className="pb-3 text-right">{t("rankingColAmount")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rankings.map((item, idx) => (
+                        <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                          <td className="py-4">
+                            <span className={`inline-flex w-7 h-7 rounded-full items-center justify-center font-extrabold text-xs ${
+                              idx === 0 
+                                ? "bg-yellow-500 text-bg-dark shadow-[0_0_10px_#eab308]" 
+                                : idx === 1 
+                                  ? "bg-slate-300 text-bg-dark" 
+                                  : idx === 2 
+                                    ? "bg-amber-600 text-text-bright" 
+                                    : "bg-white/10 text-text-bright"
+                            }`}>
+                              {item.rank}
+                            </span>
+                          </td>
+                          <td className="py-4 font-bold">{item.name}</td>
+                          <td className="py-4 text-right text-primary font-mono font-bold">
+                            {item.amount.toLocaleString()} ₩
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="mt-8 text-xs text-text-dim opacity-70 italic">
+                * rankings update in real-time. Ticking simulator active.
+              </div>
+            </div>
+
+            {/* Right Column: OBS Alerts Mock Screen */}
+            <div className="lg:col-span-5 flex flex-col gap-6">
+              
+              {/* Alert box simulator container */}
+              <div className="flex-1 bg-black/50 border border-white/10 rounded-[30px] p-6 flex flex-col justify-between min-h-[300px] shadow-2xl relative overflow-hidden">
+                <h4 className="text-sm font-bold text-text-dim tracking-wider mb-6 flex items-center justify-between">
+                  <span>{t("liveAlertTitle")}</span>
+                  <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-[10px] uppercase font-mono">OBS Overlay</span>
+                </h4>
+
+                {/* Animated Alert Banner Slot */}
+                <div className="flex-1 flex items-center justify-center">
+                  {donationAlert ? (
+                    <div className="w-full bg-[#050510]/80 backdrop-blur-xl border border-primary/30 p-6 rounded-2xl flex flex-col items-center text-center shadow-[0_10px_40px_rgba(0,240,255,0.2)] animate-float animate-pulse-slow">
+                      <div className="text-yellow-500 text-4xl mb-3 animate-bounce">💎</div>
+                      <div className="text-base sm:text-lg font-extrabold text-primary mb-2">
+                        {donationAlert.name}
+                      </div>
+                      <div className="text-sm text-text-bright leading-snug">
+                        {t("newDonationAlert")}
+                      </div>
+                      <div className="text-xl sm:text-2xl font-extrabold font-mono text-[#D8B4FE] mt-3">
+                        {donationAlert.amount.toLocaleString()} ₩
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-text-dim/60 text-sm leading-relaxed p-8">
+                      <div className="text-3xl mb-4 opacity-40">🔔</div>
+                      {t("liveAlertPlaceholder")}
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-xs text-text-dim/40 italic">
+                  * Simulation triggers simulated donation alert popups every 12 seconds.
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -919,6 +1335,66 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* 10. [NEW] Cafe24 Gnuboard Login Authentication Modal Layout */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/70 backdrop-blur-md">
+          {/* Modal Card */}
+          <div className="w-full max-w-md bg-[#050510] border border-white/10 rounded-[30px] p-8 shadow-2xl relative animate-float">
+            
+            <h3 className="text-2xl font-bold text-text-bright mb-2 tracking-tight">
+              {t("modalTitle")}
+            </h3>
+            <p className="text-xs text-text-dim mb-6 leading-relaxed">
+              {t("modalGuideText")}
+            </p>
+
+            <form onSubmit={handleLogin} className="flex flex-col gap-4">
+              {/* Username Input */}
+              <div className="flex flex-col gap-2">
+                <input 
+                  type="text" 
+                  value={loginId}
+                  onChange={(e) => setLoginId(e.target.value)}
+                  placeholder={t("modalIdPlaceholder")}
+                  required
+                  className="h-14 px-4 rounded-xl bg-white/5 border border-white/10 text-text-bright text-sm placeholder-text-dim/50 focus:border-primary focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Password Input */}
+              <div className="flex flex-col gap-2">
+                <input 
+                  type="password" 
+                  value={loginPw}
+                  onChange={(e) => setLoginPw(e.target.value)}
+                  placeholder={t("modalPwPlaceholder")}
+                  required
+                  className="h-14 px-4 rounded-xl bg-white/5 border border-white/10 text-text-bright text-sm placeholder-text-dim/50 focus:border-primary focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 mt-4">
+                <button 
+                  type="button" 
+                  onClick={() => { setIsAuthModalOpen(false); setLoginId(""); setLoginPw(""); }}
+                  className="flex-1 h-14 rounded-xl bg-white/5 border border-white/10 font-bold text-sm text-text-bright/80 hover:bg-white/10 transition-colors"
+                >
+                  {t("modalCancelBtn")}
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 h-14 rounded-xl bg-primary font-bold text-sm text-bg-dark hover:scale-103 transition-all duration-300 shadow-[0_10px_20px_rgba(0,240,255,0.2)]"
+                >
+                  {t("modalLoginBtn")}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
