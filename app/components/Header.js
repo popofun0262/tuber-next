@@ -28,6 +28,7 @@ export default function Header() {
   ];
 
   if (userSession && userSession.level >= 4) {
+    menuItems.push({ name: t("cast_title"), path: "/cast" });
     menuItems.push({ name: t("starter_title"), path: "/starter" });
   }
 
