@@ -257,11 +257,72 @@ export default function CastDashboard() {
     const newVal = currentVal === 1 ? 0 : 1;
     setWidgetStates(prev => ({ ...prev, [type]: newVal }));
     try {
+      let endpoint;
       const fd = new FormData();
-      fd.append("st_key", `${type}_active`);
-      fd.append("st_value", newVal.toString());
+      fd.append("mb_id", userSession.id);
       fd.append("apikey", userSession.apikey);
-      await fetch("https://tuber.co.kr/cast/api/update_active_notification.php", {
+
+      if (type === "timer") {
+        endpoint = "https://tuber.co.kr/cast/api/update_timer_state.php";
+        fd.append("action", "set_visibility");
+        fd.append("is_visible", newVal.toString());
+        fd.append("slot", "1");
+      } else if (type === "timer2") {
+        endpoint = "https://tuber.co.kr/cast/api/update_timer_state.php";
+        fd.append("action", "set_visibility");
+        fd.append("is_visible", newVal.toString());
+        fd.append("slot", "2");
+      } else if (type === "ranking") {
+        endpoint = "https://tuber.co.kr/cast/ranking_settings.php";
+        fd.append("action", "toggle_visibility");
+        fd.append("visible", newVal.toString());
+        fd.append("ajax", "1");
+      } else if (type === "donator_ranking") {
+        endpoint = "https://tuber.co.kr/cast/donator_ranking_settings.php";
+        fd.append("action", "toggle_visibility");
+        fd.append("visible", newVal.toString());
+        fd.append("ajax", "1");
+      } else if (type === "notification") {
+        endpoint = "https://tuber.co.kr/cast/notification_settings.php";
+        fd.append("action", "toggle_visibility");
+        fd.append("visible", newVal.toString());
+        fd.append("ajax", "1");
+      } else if (type === "subtitle") {
+        endpoint = "https://tuber.co.kr/cast/subtitle_settings.php";
+        fd.append("action", "toggle_visibility");
+        fd.append("visible", newVal.toString());
+        fd.append("ajax", "1");
+      } else if (type === "spin") {
+        endpoint = "https://tuber.co.kr/cast/api/spin_action.php";
+        fd.append("action", "toggle_visibility");
+        fd.append("visible", newVal.toString());
+        fd.append("ajax", "1");
+      } else if (type === "vs") {
+        endpoint = "https://tuber.co.kr/cast/api/vs_action.php";
+        fd.append("action", "toggle_visibility");
+        fd.append("visible", newVal.toString());
+        fd.append("ajax", "1");
+      } else if (type === "overlay") {
+        endpoint = "https://tuber.co.kr/cast/api/overlay_action.php";
+        fd.append("action", "toggle_visibility");
+        fd.append("visible", newVal.toString());
+        fd.append("ajax", "1");
+      } else if (type === "toonation") {
+        endpoint = "https://tuber.co.kr/cast/api/save_toonation_config.php";
+        fd.append("action", "toggle_visibility");
+        fd.append("is_visible", newVal.toString());
+      } else if (type === "starter") {
+        endpoint = "https://tuber.co.kr/cast/api/save_starter_config.php";
+        fd.append("action", "toggle_visibility");
+        fd.append("is_visible", newVal.toString());
+      } else {
+        endpoint = "https://tuber.co.kr/cast/slider_settings.php";
+        fd.append("action", "toggle_visibility");
+        fd.append("visible", newVal.toString());
+        fd.append("ajax", "1");
+      }
+
+      await fetch(endpoint, {
         method: "POST",
         body: fd
       });
