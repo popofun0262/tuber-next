@@ -490,17 +490,20 @@ export default function StarterPage() {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch("https://tuber.co.kr/cast/api/save_starter_config.php", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          mb_id: userSession.id,
-          apikey: userSession.apikey,
-          config: config
-        })
-      });
+      const response = await fetch(
+        `https://tuber.co.kr/cast/api/save_starter_config.php?mb_id=${userSession.id}&apikey=${userSession.apikey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            mb_id: userSession.id,
+            apikey: userSession.apikey,
+            config: config
+          })
+        }
+      );
       const data = await response.json();
       if (data.result === "success") {
         alert(t("starter_savedMsg"));
