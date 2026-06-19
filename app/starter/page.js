@@ -88,7 +88,7 @@ const getDefaultConfig = (orientation = "vertical") => ({
 });
 
 export default function StarterPage() {
-  const { userSession, lang, t } = useApp();
+  const { userSession, setUserSession, lang, t } = useApp();
   const router = useRouter();
   const workspaceRef = useRef(null);
 
@@ -129,10 +129,22 @@ export default function StarterPage() {
     const loadConfig = async () => {
       try {
         const res = await fetch(
-          `https://tuber.co.kr/cast/api/get_starter_config.php?mb_id=${userSession.id}&apikey=${userSession.apikey}`
+          `https://tuber.co.kr/cast/api/get_starter_config.php?mb_id=${userSession.id}&apikey=${userSession.apikey || ""}`,
+          {
+            credentials: "include"
+          }
         );
         const data = await res.json();
         if (data.result === "success" && data.config) {
+          // Sync/backfill apikey automatically if retrieved from database and different from current userSession.apikey
+          if (data.apikey && data.apikey !== userSession.apikey) {
+            setUserSession((prev) => {
+              if (!prev || prev.apikey === data.apikey) return prev;
+              const updated = { ...prev, apikey: data.apikey };
+              localStorage.setItem("tuber_user_session", JSON.stringify(updated));
+              return updated;
+            });
+          }
           // Bind missing settings for backward compatibility
           const elements = ["logo", "subtitle", "sliding_subtitle", "qr", "slider", "ranking"];
           const loaded = { ...data.config };

@@ -54,6 +54,7 @@ export function AppContextProvider({ children }) {
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
           },
+          credentials: "include",
           body: formData,
         });
         data = await response.json();
