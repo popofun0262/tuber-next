@@ -70,7 +70,7 @@ export default function EntertainmentPage() {
               {t("ent_introDesc")}
             </p>
           </div>
-          <div className="flex-1.2 rounded-2xl overflow-hidden border border-[#FF007A]/25 shadow-lg shadow-[#FF007A]/5 relative w-full h-[240px] sm:h-[300px]">
+          <div className="flex-[1.2] w-full lg:w-auto rounded-2xl overflow-hidden border border-[#FF007A]/25 shadow-lg shadow-[#FF007A]/5 relative h-[240px] sm:h-[300px]">
             <Image
               src="/tuber_ent_v3.jpg"
               alt="Entertainment Widget Showcase"

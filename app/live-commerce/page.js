@@ -62,7 +62,7 @@ export default function LiveCommercePage() {
               {t("lc_introDesc")}
             </p>
           </div>
-          <div className="flex-1.2 rounded-2xl overflow-hidden border border-[#00F0FF]/25 shadow-lg shadow-[#00F0FF]/5 relative w-full h-[240px] sm:h-[300px]">
+          <div className="flex-[1.2] w-full lg:w-auto rounded-2xl overflow-hidden border border-[#00F0FF]/25 shadow-lg shadow-[#00F0FF]/5 relative h-[240px] sm:h-[300px]">
             <Image
               src="/tuber_commerce_v2.jpg"
               alt="Commerce Widget Showcase"

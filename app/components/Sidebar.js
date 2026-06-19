@@ -21,8 +21,8 @@ export default function Sidebar() {
   const menuItems = [
     { name: t("navHome"), path: "/" },
     { name: t("navWidget"), path: "/about" },
-    { name: t("lc_heroBadge"), path: "/live-commerce" },
-    { name: t("ent_heroBadge"), path: "/entertainment" },
+    { name: t("navLiveCommerce"), path: "/live-commerce" },
+    { name: t("navEntertainment"), path: "/entertainment" },
   ];
 
   return (
