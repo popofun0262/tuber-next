@@ -88,7 +88,7 @@ const getDefaultConfig = (orientation = "vertical") => ({
 });
 
 export default function StarterPage() {
-  const { userSession, setUserSession, lang, t } = useApp();
+  const { userSession, setUserSession, setIsAuthModalOpen, handleLogout, lang, t } = useApp();
   const router = useRouter();
   const workspaceRef = useRef(null);
 
@@ -1087,20 +1087,37 @@ export default function StarterPage() {
             <label className="block text-[10px] font-black text-primary uppercase tracking-wider">
               {t("starter_obsWidgetUrl")}
             </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={`https://tuber.co.kr/cast/widget_starter.html?mb_id=${userSession.id}&apikey=${userSession.apikey}`}
-                className="flex-grow bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-[11px] font-mono text-text-dim select-all"
-              />
-              <button
-                onClick={handleCopyObsUrl}
-                className="bg-primary hover:bg-primary/80 active:scale-95 text-bg-dark text-xs font-black px-4 rounded-lg transition-all"
-              >
-                {t("starter_copy")}
-              </button>
-            </div>
+            {!userSession.apikey || userSession.apikey === "undefined" || (userSession.id !== "demo" && userSession.apikey === "demoapikey1234567890") ? (
+              <div className="flex flex-col gap-2 mt-1">
+                <p className="text-xs text-red-400 font-bold leading-normal">
+                  ⚠️ API 보안키가 로드되지 않았습니다. 로그아웃 후 다시 로그인하시면 보안키가 자동으로 생성 및 적용됩니다.
+                </p>
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg transition-all self-start"
+                >
+                  로그아웃 후 다시 로그인하기
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={`https://tuber.co.kr/cast/widget_starter.html?mb_id=${userSession.id}&apikey=${userSession.apikey}`}
+                  className="flex-grow bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-[11px] font-mono text-text-dim select-all"
+                />
+                <button
+                  onClick={handleCopyObsUrl}
+                  className="bg-primary hover:bg-primary/80 active:scale-95 text-bg-dark text-xs font-black px-4 rounded-lg transition-all"
+                >
+                  {t("starter_copy")}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Accordion Settings Sections */}
