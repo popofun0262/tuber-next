@@ -168,7 +168,7 @@ export default function CastDashboard() {
   const pollStatuses = async () => {
     try {
       // Parallel configurations status checks
-      const widgetKeys = ["slider", "ranking", "timer", "timer2", "notification", "donator_ranking", "spin", "vs", "subtitle", "bgm", "youtube", "starter", "overlay"];
+      const widgetKeys = ["slider", "ranking", "timer", "timer2", "notification", "donator_ranking", "spin", "vs", "subtitle", "bgm", "youtube", "starter", "overlay", "toonation"];
       const promises = widgetKeys.map(key => 
         fetch(`https://tuber.co.kr/cast/api/get_widget_config.php?widget=${key}&mb_id=${userSession.id}&apikey=${userSession.apikey}`)
           .then(res => res.json())
@@ -642,7 +642,7 @@ export default function CastDashboard() {
             {widgets.map((type, idx) => {
               const label = WIDGET_LABELS[type]?.[lang] || WIDGET_LABELS[type]?.ko || type;
               const icon = WIDGET_ICONS[type] || "🔹";
-              const isVisible = type === "tuber" || type === "toonation" || widgetStates[type] === 1;
+              const isVisible = type === "tuber" || widgetStates[type] === 1;
 
               return (
                 <div
