@@ -263,7 +263,7 @@ export const translations = {
     ent_ctaBtn: "지금 가입하기",
 
     // --- Subpage: STARTER ---
-    starter_title: "초보자 통합 위젯 설정",
+    starter_title: "스타터키트 설정",
     starter_desc: "유튜브/OBS 방송 화면에 띄울 로고, 자막, QR, 상품 슬라이더, 랭킹을 한 번에 편집하고 드래그하여 배치해보세요.",
     starter_subTitleOptions: "세부 설정 옵션",
     starter_userPrefix: "님 설정",
