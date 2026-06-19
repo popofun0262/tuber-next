@@ -97,7 +97,7 @@ export default function StarterPage() {
   const [redirectCountdown, setRedirectCountdown] = useState(5);
   const [config, setConfig] = useState(null);
   const [activeElement, setActiveElement] = useState("logo");
-  const [canvasScale, setCanvasScale] = useState(1);
+  const [canvasScale, setCanvasScale] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [activeAccordion, setActiveAccordion] = useState("logo");
 
@@ -176,19 +176,19 @@ export default function StarterPage() {
   const canvasHeight = isVertical ? 1920 : 1080;
 
   useEffect(() => {
-    if (!config) return;
+    if (!config || !workspaceRef.current) return;
 
-    const handleResize = () => {
-      if (!workspaceRef.current) return;
+    const handleResize = (width, height) => {
+      if (width <= 0 || height <= 0) return;
       const isMobile = window.innerWidth <= 991;
       const pad = isMobile ? 30 : 80;
-      const availW = workspaceRef.current.clientWidth - pad;
-      const availH = workspaceRef.current.clientHeight - pad;
+      const availW = width - pad;
+      const availH = height - pad;
       const ratio = isVertical ? 9 / 16 : 16 / 9;
 
       let targetW, targetH;
       if (isMobile) {
-        targetW = workspaceRef.current.clientWidth * 0.9;
+        targetW = width * 0.9;
         targetH = targetW / ratio;
         if (targetH > availH) {
           targetH = availH;
@@ -204,12 +204,27 @@ export default function StarterPage() {
         }
       }
 
-      setCanvasScale(targetW / canvasWidth);
+      const newScale = targetW / canvasWidth;
+      if (newScale > 0) {
+        setCanvasScale(newScale);
+      }
     };
 
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        handleResize(width, height);
+      }
+    });
+
+    observer.observe(workspaceRef.current);
+
+    // Initial check
+    if (workspaceRef.current.clientWidth > 0) {
+      handleResize(workspaceRef.current.clientWidth, workspaceRef.current.clientHeight);
+    }
+
+    return () => observer.disconnect();
   }, [config, isVertical, canvasWidth]);
 
   if (isAuthorized === null) {
@@ -639,10 +654,11 @@ export default function StarterPage() {
         <div
           className="relative rounded-2xl border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.95)] overflow-hidden transition-all duration-300 bg-cover bg-center"
           style={{
-            width: `${canvasWidth * canvasScale}px`,
-            height: `${canvasHeight * canvasScale}px`,
+            width: `${canvasWidth * (canvasScale || 0.1)}px`,
+            height: `${canvasHeight * (canvasScale || 0.1)}px`,
             backgroundImage: "url('/starter_bgd.jpg')",
-            backgroundSize: "cover"
+            backgroundSize: "cover",
+            opacity: canvasScale === null ? 0 : 1
           }}
         >
           {/* Canvas Dot Matrix Grid */}
@@ -654,7 +670,7 @@ export default function StarterPage() {
             style={{
               width: `${canvasWidth}px`,
               height: `${canvasHeight}px`,
-              transform: `scale(${canvasScale})`
+              transform: `scale(${canvasScale || 0.1})`
             }}
           >
             {/* Guide Lines rendering */}
