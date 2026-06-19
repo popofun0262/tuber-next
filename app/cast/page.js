@@ -83,6 +83,9 @@ export default function CastDashboard() {
 
   // Audio queue processing
   const [isMuted, setIsMuted] = useState(false);
+  const [settingsUrl, setSettingsUrl] = useState(null);
+  const [settingsTitle, setSettingsTitle] = useState("");
+  const [iframeLoading, setIframeLoading] = useState(true);
   const currentAudioRef = useRef(null);
   const queueIntervalRef = useRef(null);
 
@@ -165,7 +168,7 @@ export default function CastDashboard() {
   const pollStatuses = async () => {
     try {
       // Parallel configurations status checks
-      const widgetKeys = ["slider", "ranking", "timer", "timer2", "notification", "donator_ranking", "spin", "vs", "subtitle", "bgm", "youtube", "starter"];
+      const widgetKeys = ["slider", "ranking", "timer", "timer2", "notification", "donator_ranking", "spin", "vs", "subtitle", "bgm", "youtube", "starter", "overlay"];
       const promises = widgetKeys.map(key => 
         fetch(`https://tuber.co.kr/cast/api/get_widget_config.php?widget=${key}&mb_id=${userSession.id}&apikey=${userSession.apikey}`)
           .then(res => res.json())
@@ -587,7 +590,7 @@ export default function CastDashboard() {
   if (!isAuthorized || widgets.length === 0) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-[#060814] via-[#0d1127] to-[#060814] text-slate-200 pt-24 pb-16 px-4 md:px-6 font-sans">
+    <div className="min-h-screen bg-[#07080f] text-slate-200 pt-24 pb-16 px-4 md:px-6 font-sans">
       {/* 1. Header Area */}
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
@@ -606,7 +609,7 @@ export default function CastDashboard() {
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 border flex items-center gap-1.5 ${
               isMuted 
                 ? "bg-red-500/10 border-red-500/30 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.15)]" 
-                : "bg-[#131627] border-white/10 text-slate-300 hover:text-white hover:bg-[#1a1e36]"
+                : "bg-[#131629] border-white/10 text-slate-300 hover:text-white hover:bg-[#1a1e36]"
             }`}
           >
             {isMuted ? "🔇 " + t("cast_btnMute") : "🔊 " + t("cast_btnMute")}
@@ -622,7 +625,7 @@ export default function CastDashboard() {
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 border flex items-center gap-1.5 ${
               isEditable 
                 ? "bg-primary text-bg-dark border-primary shadow-[0_0_15px_rgba(0,240,255,0.4)]" 
-                : "bg-[#131627] border-white/10 text-slate-300 hover:text-white hover:bg-[#1a1e36]"
+                : "bg-[#131629] border-white/10 text-slate-300 hover:text-white hover:bg-[#1a1e36]"
             }`}
           >
             🛠️ {isEditable ? t("cast_editUnlocked") : t("cast_widgetEdit")}
@@ -639,7 +642,7 @@ export default function CastDashboard() {
             {widgets.map((type, idx) => {
               const label = WIDGET_LABELS[type]?.[lang] || WIDGET_LABELS[type]?.ko || type;
               const icon = WIDGET_ICONS[type] || "🔹";
-              const isVisible = widgetStates[type] === 1;
+              const isVisible = type === "tuber" || type === "toonation" || widgetStates[type] === 1;
 
               return (
                 <div
@@ -655,10 +658,10 @@ export default function CastDashboard() {
                     draggedIdx === idx ? "opacity-40 border-dashed border-primary" : ""
                   } ${
                     isEditable 
-                      ? "border-dashed border-primary/40 bg-gradient-to-b from-[#1c213f]/80 to-[#12152b]/80 hover:border-primary/80 cursor-grab active:cursor-grabbing" 
+                      ? "border-dashed border-primary/60 bg-[#1e2448] cursor-grab active:cursor-grabbing" 
                       : isVisible 
-                      ? "border-primary/45 bg-gradient-to-b from-[#161a35] to-[#0f1225] shadow-[0_4px_20px_rgba(0,0,0,0.4),0_0_15px_rgba(0,240,255,0.08)]" 
-                      : "border-white/5 bg-gradient-to-b from-[#101222]/60 to-[#0b0c17]/60 opacity-60"
+                      ? "border-solid border-primary/50 bg-[#1e2448] shadow-[0_4px_25px_rgba(0,0,0,0.55),0_0_12px_rgba(0,240,255,0.06)]" 
+                      : "border-dashed border-[#24355a] bg-[#0c0f1d] opacity-100 hover:border-[#3b5284]"
                   }`}
                 >
                   {/* Header row */}
@@ -682,12 +685,12 @@ export default function CastDashboard() {
                         <button
                           type="button"
                           onClick={() => handleToggleWidget(type, widgetStates[type])}
-                          className={`w-10 h-5 rounded-full p-0.5 transition-colors duration-300 relative ${
+                          className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-300 relative ${
                             isVisible ? "bg-emerald-500" : "bg-white/10"
                           }`}
                         >
                           <div className={`w-4 h-4 rounded-full bg-white transition-transform duration-300 shadow-md ${
-                            isVisible ? "translate-x-5" : "translate-x-0"
+                            isVisible ? "translate-x-4" : "translate-x-0"
                           }`} />
                         </button>
                       )}
@@ -707,11 +710,11 @@ export default function CastDashboard() {
                         placeholder="룰렛 결과값 입력"
                         value={spinInput}
                         onChange={(e) => setSpinInput(e.target.value)}
-                        className="flex-grow bg-[#05060d] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:border-primary/60 outline-none transition-colors"
+                        className="flex-grow bg-[#07080f] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:border-primary/60 outline-none transition-colors"
                       />
                       <button
                         onClick={handleSpinSubmit}
-                        className="bg-primary hover:bg-primary/80 hover:shadow-[0_0_8px_rgba(0,240,255,0.4)] text-bg-dark text-[11px] font-black px-3.5 py-1.5 rounded-lg transition-all"
+                        className="bg-primary hover:bg-primary/80 hover:shadow-[0_0_8px_rgba(0,240,255,0.4)] text-bg-dark text-[11px] font-black px-3 py-1.5 rounded-lg transition-all"
                       >
                         스핀 적용
                       </button>
@@ -725,7 +728,7 @@ export default function CastDashboard() {
                         placeholder="목표 금액(원) 입력"
                         value={vsInput}
                         onChange={(e) => setVsInput(e.target.value)}
-                        className="flex-grow bg-[#05060d] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:border-primary/60 outline-none transition-colors font-mono"
+                        className="flex-grow bg-[#07080f] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:border-primary/60 outline-none transition-colors font-mono"
                       />
                       <button
                         onClick={handleVsSubmit}
@@ -737,14 +740,14 @@ export default function CastDashboard() {
                   )}
 
                   {type === "timer" && (
-                    <div className="flex flex-col gap-1.5 bg-[#05060d]/60 p-2 rounded-xl border border-white/5 mt-1">
+                    <div className="flex flex-col gap-1.5 bg-[#07080f]/60 p-2 rounded-xl border border-white/5 mt-1">
                       <div className="flex items-center gap-1.5">
                         <input
                           type="number"
                           placeholder="분"
                           value={timer1Min}
                           onChange={(e) => setTimer1Min(parseInt(e.target.value) || 0)}
-                          className="w-12 bg-[#05060d] border border-white/10 rounded-lg py-1 text-xs text-center text-slate-200 outline-none focus:border-primary/60 font-mono"
+                          className="w-12 bg-[#07080f] border border-white/10 rounded-lg py-1 text-xs text-center text-slate-200 outline-none focus:border-primary/60 font-mono"
                         />
                         <span className="text-slate-400">:</span>
                         <input
@@ -752,7 +755,7 @@ export default function CastDashboard() {
                           placeholder="초"
                           value={timer1Sec}
                           onChange={(e) => setTimer1Sec(parseInt(e.target.value) || 0)}
-                          className="w-12 bg-[#05060d] border border-white/10 rounded-lg py-1 text-xs text-center text-slate-200 outline-none focus:border-primary/60 font-mono"
+                          className="w-12 bg-[#07080f] border border-white/10 rounded-lg py-1 text-xs text-center text-slate-200 outline-none focus:border-primary/60 font-mono"
                         />
                         <button
                           onClick={() => handleControlTimer("start", 1)}
@@ -764,13 +767,13 @@ export default function CastDashboard() {
                       <div className="grid grid-cols-2 gap-1.5">
                         <button
                           onClick={() => handleControlTimer("pause", 1)}
-                          className="bg-[#131627] hover:bg-[#1a1e36] border border-white/10 text-[10px] py-1 rounded-lg transition-colors text-slate-300 hover:text-white"
+                          className="bg-[#131629] hover:bg-[#1a1e36] border border-white/10 text-[10px] py-1 rounded-lg transition-colors text-slate-300 hover:text-white"
                         >
                           일시정지
                         </button>
                         <button
                           onClick={() => handleControlTimer("reset", 1)}
-                          className="bg-[#131627] hover:bg-[#1a1e36] border border-white/10 text-[10px] py-1 rounded-lg transition-colors text-slate-300 hover:text-white"
+                          className="bg-[#131629] hover:bg-[#1a1e36] border border-white/10 text-[10px] py-1 rounded-lg transition-colors text-slate-300 hover:text-white"
                         >
                           리셋
                         </button>
@@ -779,14 +782,14 @@ export default function CastDashboard() {
                   )}
 
                   {type === "timer2" && (
-                    <div className="flex flex-col gap-1.5 bg-[#05060d]/60 p-2 rounded-xl border border-white/5 mt-1">
+                    <div className="flex flex-col gap-1.5 bg-[#07080f]/60 p-2 rounded-xl border border-white/5 mt-1">
                       <div className="flex items-center gap-1.5">
                         <input
                           type="number"
                           placeholder="분"
                           value={timer2Min}
                           onChange={(e) => setTimer2Min(parseInt(e.target.value) || 0)}
-                          className="w-12 bg-[#05060d] border border-white/10 rounded-lg py-1 text-xs text-center text-slate-200 outline-none focus:border-primary/60 font-mono"
+                          className="w-12 bg-[#07080f] border border-white/10 rounded-lg py-1 text-xs text-center text-slate-200 outline-none focus:border-primary/60 font-mono"
                         />
                         <span className="text-slate-400">:</span>
                         <input
@@ -794,7 +797,7 @@ export default function CastDashboard() {
                           placeholder="초"
                           value={timer2Sec}
                           onChange={(e) => setTimer2Sec(parseInt(e.target.value) || 0)}
-                          className="w-12 bg-[#05060d] border border-white/10 rounded-lg py-1 text-xs text-center text-slate-200 outline-none focus:border-primary/60 font-mono"
+                          className="w-12 bg-[#07080f] border border-white/10 rounded-lg py-1 text-xs text-center text-slate-200 outline-none focus:border-primary/60 font-mono"
                         />
                         <button
                           onClick={() => handleControlTimer("start", 2)}
@@ -806,13 +809,13 @@ export default function CastDashboard() {
                       <div className="grid grid-cols-2 gap-1.5">
                         <button
                           onClick={() => handleControlTimer("pause", 2)}
-                          className="bg-[#131627] hover:bg-[#1a1e36] border border-white/10 text-[10px] py-1 rounded-lg transition-colors text-slate-300 hover:text-white"
+                          className="bg-[#131629] hover:bg-[#1a1e36] border border-white/10 text-[10px] py-1 rounded-lg transition-colors text-slate-300 hover:text-white"
                         >
                           일시정지
                         </button>
                         <button
                           onClick={() => handleControlTimer("reset", 2)}
-                          className="bg-[#131627] hover:bg-[#1a1e36] border border-white/10 text-[10px] py-1 rounded-lg transition-colors text-slate-300 hover:text-white"
+                          className="bg-[#131629] hover:bg-[#1a1e36] border border-white/10 text-[10px] py-1 rounded-lg transition-colors text-slate-300 hover:text-white"
                         >
                           리셋
                         </button>
@@ -821,52 +824,59 @@ export default function CastDashboard() {
                   )}
 
                   {type === "toonation" && (
-                    <div className="flex gap-1.5 mt-1">
+                    <div className="flex gap-2 mt-2 border-t border-white/5 pt-2.5">
                       <button
                         onClick={() => setIsToonModalOpen(true)}
-                        className="bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-[10px] font-black px-2.5 py-1.5 rounded-lg flex-1 transition-colors"
+                        className="bg-[#1e1b4b] hover:bg-[#312e81] border border-indigo-500/30 text-indigo-300 text-xs font-semibold py-1.5 px-3 rounded-full flex-1 transition-all flex items-center justify-center gap-1"
                       >
-                        🔌 투네이션 연동
+                        <span>🔌</span> 투네이션
                       </button>
                       <button
                         onClick={() => setIsToonModalOpen(true)}
-                        className="bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-300 text-[10px] font-black px-2.5 py-1.5 rounded-lg flex-1 transition-colors"
+                        className="bg-[#451a03] hover:bg-[#78350f] border border-amber-500/30 text-amber-300 text-xs font-semibold py-1.5 px-3 rounded-full flex-1 transition-all flex items-center justify-center gap-1"
                       >
-                        🔌 팬더TV 연동
+                        <span>🔌</span> 팬더TV
                       </button>
                     </div>
                   )}
 
                   {/* Footer action buttons row */}
                   {type !== "tuber" && type !== "toonation" && (
-                    <div className="flex gap-1 border-t border-white/5 pt-2.5 mt-1">
-                      <button
-                        onClick={() => window.open(`https://tuber.co.kr/cast/widget_${type}.html?mb_id=${userSession.id}&apikey=${userSession.apikey}`, "_blank")}
-                        className="py-1 px-1.5 bg-[#131627] hover:bg-[#1a1e36] border border-white/10 rounded-lg text-[10px] font-bold transition-all flex-1 text-center whitespace-nowrap overflow-hidden text-ellipsis text-slate-300 hover:text-white"
-                        title={t("cast_btnOpenScreen")}
-                      >
-                        🖥️ 송출화면
-                      </button>
-                      <button
-                        onClick={() => handleCopyLink(type)}
-                        className="py-1 px-1.5 bg-[#131627] hover:bg-[#1a1e36] border border-white/10 rounded-lg text-[10px] font-bold transition-all flex-1 text-center whitespace-nowrap overflow-hidden text-ellipsis text-slate-300 hover:text-white"
-                        title={t("cast_btnCopyLink")}
-                      >
-                        📋 주소복사
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (type === "starter") {
-                            router.push("/starter");
-                          } else {
-                            window.open(`https://tuber.co.kr/cast/${type}_settings.php?mb_id=${userSession.id}&apikey=${userSession.apikey}`, "_blank");
-                          }
-                        }}
-                        className="py-1 px-1.5 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-lg text-[10px] font-bold transition-all flex-1 text-center whitespace-nowrap overflow-hidden text-ellipsis"
-                        title={t("cast_btnSettings")}
-                      >
-                        ⚙️ 설정하기
-                      </button>
+                    <div className="flex items-center justify-between border-t border-white/5 pt-2.5 mt-2">
+                      <span className="text-[9px] font-mono tracking-wider text-slate-400 uppercase px-2 py-0.5 bg-white/5 rounded border border-white/5">
+                        {type}
+                      </span>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => window.open(`https://tuber.co.kr/cast/widget_${type}.html?mb_id=${userSession.id}&apikey=${userSession.apikey}`, "_blank")}
+                          className="w-7 h-7 flex items-center justify-center bg-[#07080f] hover:bg-[#1a1e36] border border-white/10 rounded-full text-xs transition-all hover:text-white"
+                          title={t("cast_btnOpenScreen")}
+                        >
+                          🖥️
+                        </button>
+                        <button
+                          onClick={() => handleCopyLink(type)}
+                          className="w-7 h-7 flex items-center justify-center bg-[#07080f] hover:bg-[#1a1e36] border border-white/10 rounded-full text-xs transition-all hover:text-white"
+                          title={t("cast_btnCopyLink")}
+                        >
+                          📋
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (type === "starter") {
+                              router.push("/starter");
+                            } else {
+                              setSettingsTitle(`${label} 설정`);
+                              setIframeLoading(true);
+                              setSettingsUrl(`https://tuber.co.kr/cast/${type}_settings.php?mb_id=${userSession.id}&apikey=${userSession.apikey}`);
+                            }
+                          }}
+                          className="w-7 h-7 flex items-center justify-center bg-primary/10 border border-primary/20 hover:bg-primary/20 rounded-full text-xs transition-all text-primary"
+                          title={t("cast_btnSettings")}
+                        >
+                          ⚙️
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -879,8 +889,8 @@ export default function CastDashboard() {
         <div className="lg:col-span-4 space-y-4">
           
           {/* Streamer Profile Card */}
-          <div className="border border-white/10 bg-gradient-to-b from-[#14172e] to-[#0d0f20] rounded-2xl p-4 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="border border-white/5 bg-[#131629] rounded-2xl p-4 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
             
             <h3 className="text-xs font-black text-primary uppercase tracking-wider mb-4 flex items-center gap-2">
               🪪 스트리머 프로필
@@ -955,13 +965,13 @@ export default function CastDashboard() {
           </div>
 
           {/* Console Tabs Card */}
-          <div className="border border-white/10 bg-gradient-to-b from-[#121427] to-[#0a0b16] rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+          <div className="border border-white/5 bg-[#131629] rounded-2xl overflow-hidden shadow-2xl flex flex-col">
             {/* Tabs Headers */}
-            <div className="flex border-b border-white/5 bg-[#05060d]/60">
+            <div className="flex border-b border-white/5 bg-[#07080f]">
               <button
                 onClick={() => setActiveTab("ranking")}
                 className={`flex-1 py-3 text-xs font-black tracking-wide border-b-2 transition-all ${
-                  activeTab === "ranking" ? "border-primary text-primary bg-primary/2" : "border-transparent text-slate-400 hover:text-white hover:bg-white/2"
+                  activeTab === "ranking" ? "border-primary text-primary bg-primary/5" : "border-transparent text-slate-400 hover:text-white hover:bg-white/2"
                 }`}
               >
                 🏆 랭킹 보드
@@ -969,7 +979,7 @@ export default function CastDashboard() {
               <button
                 onClick={() => setActiveTab("log")}
                 className={`flex-1 py-3 text-xs font-black tracking-wide border-b-2 transition-all ${
-                  activeTab === "log" ? "border-primary text-primary bg-primary/2" : "border-transparent text-slate-400 hover:text-white hover:bg-white/2"
+                  activeTab === "log" ? "border-primary text-primary bg-primary/5" : "border-transparent text-slate-400 hover:text-white hover:bg-white/2"
                 }`}
               >
                 📜 활동로그
@@ -977,7 +987,7 @@ export default function CastDashboard() {
               <button
                 onClick={() => setActiveTab("chat")}
                 className={`flex-1 py-3 text-xs font-black tracking-wide border-b-2 transition-all ${
-                  activeTab === "chat" ? "border-primary text-primary bg-primary/2" : "border-transparent text-slate-400 hover:text-white hover:bg-white/2"
+                  activeTab === "chat" ? "border-primary text-primary bg-primary/5" : "border-transparent text-slate-400 hover:text-white hover:bg-white/2"
                 }`}
               >
                 💬 채팅창
@@ -992,25 +1002,25 @@ export default function CastDashboard() {
                     <h3 className="text-xs font-black text-primary uppercase tracking-wider">
                       {t("cast_todayRankings")}
                     </h3>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1.5">
                       <button
                         onClick={() => setIsPointModalOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-[10px] font-bold px-2 py-1 rounded transition-colors"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-[10px] font-bold px-2 py-1 rounded transition-colors text-white"
                       >
                         점수조정
                       </button>
                       <button
                         onClick={handleResetRankings}
-                        className="bg-red-600 hover:bg-red-700 text-[10px] font-bold px-2 py-1 rounded transition-colors"
+                        className="bg-red-600 hover:bg-red-700 text-[10px] font-bold px-2 py-1 rounded transition-colors text-white"
                       >
                         {t("cast_btnResetRanking")}
                       </button>
                     </div>
                   </div>
 
-                  <div className="bg-[#05060d] border border-white/10 rounded-xl overflow-hidden max-h-[300px] overflow-y-auto">
+                  <div className="bg-[#07080f] border border-white/5 rounded-xl overflow-hidden max-h-[300px] overflow-y-auto">
                     <table className="w-full text-xs text-left">
-                      <thead className="bg-[#05060d]/80 text-[9px] font-black text-slate-400 uppercase tracking-wider border-b border-white/10">
+                      <thead className="bg-[#07080f]/80 text-[9px] font-black text-slate-400 uppercase tracking-wider border-b border-white/5">
                         <tr>
                           <th className="px-3 py-2">닉네임</th>
                           <th className="px-3 py-2 text-right">매출</th>
@@ -1027,10 +1037,10 @@ export default function CastDashboard() {
                           </tr>
                         ) : (
                           rankings.map((r, i) => {
-                            const bjDisplayName = r.mb_nick || r.mb_name || r.mb_id;
-                            const totalScore = (r.mb_point || 0) + (r.contribution || 0);
-                            return (
-                              <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02] even:bg-[#080911]/30 transition-colors">
+                             const bjDisplayName = r.mb_nick || r.mb_name || r.mb_id;
+                             const totalScore = (r.mb_point || 0) + (r.contribution || 0);
+                             return (
+                              <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02] even:bg-[#07080f]/30 transition-colors">
                                 <td className="px-3 py-2.5 font-bold text-white">{bjDisplayName}</td>
                                 <td className="px-3 py-2.5 text-right font-mono text-white/80">₩{(r.mb_point || 0).toLocaleString()}</td>
                                 <td className="px-3 py-2.5 text-right font-mono text-primary font-bold">{(totalScore).toLocaleString()}</td>
@@ -1078,7 +1088,7 @@ export default function CastDashboard() {
                   </div>
 
                   {/* Manual Sponsorship Form */}
-                  <form onSubmit={handleManualDonation} className="bg-[#05060d]/50 border border-white/10 p-3 rounded-xl space-y-3 shadow-inner">
+                  <form onSubmit={handleManualDonation} className="bg-[#07080f]/50 border border-white/5 p-3 rounded-xl space-y-3 shadow-inner">
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <label className="block text-[10px] text-slate-400 uppercase">닉네임</label>
@@ -1087,7 +1097,7 @@ export default function CastDashboard() {
                           required
                           value={formName}
                           onChange={(e) => setFormName(e.target.value)}
-                          className="w-full bg-[#05060d] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-primary/60 transition-colors"
+                          className="w-full bg-[#07080f] border border-white/5 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-primary/60 transition-colors"
                           placeholder="홍길동"
                         />
                       </div>
@@ -1097,7 +1107,7 @@ export default function CastDashboard() {
                           type="number"
                           value={formAmount}
                           onChange={(e) => setFormAmount(e.target.value)}
-                          className="w-full bg-[#05060d] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-primary/60 transition-colors font-mono"
+                          className="w-full bg-[#07080f] border border-white/5 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-primary/60 transition-colors font-mono"
                           placeholder="10000"
                         />
                       </div>
@@ -1119,7 +1129,7 @@ export default function CastDashboard() {
                           step="any"
                           value={formPoint}
                           onChange={(e) => setFormPoint(e.target.value)}
-                          className="w-full bg-[#05060d] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-primary/60 transition-colors font-mono"
+                          className="w-full bg-[#07080f] border border-white/5 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-primary/60 transition-colors font-mono"
                           placeholder="1"
                         />
                       </div>
@@ -1129,7 +1139,7 @@ export default function CastDashboard() {
                           type="number"
                           value={formFrequency}
                           onChange={(e) => setFormFrequency(e.target.value)}
-                          className="w-full bg-[#05060d] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-primary/60 transition-colors font-mono"
+                          className="w-full bg-[#07080f] border border-white/5 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-primary/60 transition-colors font-mono"
                           placeholder="0"
                         />
                       </div>
@@ -1138,7 +1148,7 @@ export default function CastDashboard() {
                     {/* Member selection grid (Recipient BJ) */}
                     <div className="space-y-1.5">
                       <label className="block text-[10px] text-slate-400 uppercase tracking-wider">멤버 선택 (수혜 BJ)</label>
-                      <div className="flex flex-wrap gap-1.5 p-2 bg-[#05060d] rounded-xl border border-white/10 max-h-[100px] overflow-y-auto">
+                      <div className="flex flex-wrap gap-1.5 p-2 bg-[#07080f] rounded-xl border border-white/5 max-h-[100px] overflow-y-auto">
                         <button
                           type="button"
                           onClick={() => {
@@ -1148,7 +1158,7 @@ export default function CastDashboard() {
                           className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
                             selectedRecipient === userSession.id
                               ? "bg-primary/20 border-primary text-primary shadow-[0_0_8px_rgba(0,240,255,0.25)]"
-                              : "bg-[#131627] border-white/10 text-slate-300 hover:text-white"
+                              : "bg-[#07080f] border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
                           }`}
                         >
                           🌟 {userSession.id} (나)
@@ -1168,7 +1178,7 @@ export default function CastDashboard() {
                                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
                                   selectedRecipient === r.mb_id
                                     ? "bg-primary/20 border-primary text-primary shadow-[0_0_8px_rgba(0,240,255,0.25)]"
-                                    : "bg-[#131627] border-white/10 text-slate-300 hover:text-white"
+                                    : "bg-[#07080f] border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
                                 }`}
                               >
                                 👤 {bjName}
@@ -1187,7 +1197,7 @@ export default function CastDashboard() {
                   </form>
 
                   {/* Logs list output */}
-                  <div className="bg-[#05060d] border border-white/10 rounded-xl p-3 max-h-[250px] overflow-y-auto space-y-2">
+                  <div className="bg-[#07080f] border border-white/5 rounded-xl p-3 max-h-[250px] overflow-y-auto space-y-2">
                     {history.length === 0 ? (
                       <p className="text-center py-8 text-xs text-slate-400 font-medium">로그 기록이 없습니다.</p>
                     ) : (
@@ -1222,7 +1232,7 @@ export default function CastDashboard() {
                     {t("cast_chatConsole")}
                   </h3>
 
-                  <div className="bg-[#05060d] border border-white/10 rounded-xl p-3 h-[250px] overflow-y-auto space-y-2 font-mono text-xs">
+                  <div className="bg-[#07080f] border border-white/5 rounded-xl p-3 h-[250px] overflow-y-auto space-y-2 font-mono text-xs">
                     {chats.length === 0 ? (
                       <p className="text-center py-8 text-slate-400">채팅 로그가 없습니다.</p>
                     ) : (
@@ -1241,7 +1251,7 @@ export default function CastDashboard() {
                       placeholder="채팅 메시지 입력..."
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
-                      className="flex-grow bg-[#05060d] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:border-primary/60 outline-none transition-colors"
+                      className="flex-grow bg-[#07080f] border border-white/5 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:border-primary/60 outline-none transition-colors"
                     />
                     <button
                       type="submit"
@@ -1261,7 +1271,7 @@ export default function CastDashboard() {
       {/* 1. Toonation Modal */}
       {isToonModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="border border-white/10 bg-gradient-to-b from-[#14172e] to-[#0d0f20] max-w-md w-full p-6 rounded-2xl space-y-4 shadow-2xl relative">
+          <div className="border border-white/5 bg-[#131629] max-w-md w-full p-6 rounded-2xl space-y-4 shadow-2xl relative">
             <h2 className="text-sm font-black text-primary uppercase tracking-wider">
               🔌 {t("cast_modalToonationTitle")}
             </h2>
@@ -1272,7 +1282,7 @@ export default function CastDashboard() {
                   type="password"
                   value={toonKey}
                   onChange={(e) => setToonKey(e.target.value)}
-                  className="w-full bg-[#05060d] border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/60"
+                  className="w-full bg-[#07080f] border border-white/5 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/60"
                 />
               </div>
               <div>
@@ -1281,14 +1291,14 @@ export default function CastDashboard() {
                   type="password"
                   value={pandaKey}
                   onChange={(e) => setPandaKey(e.target.value)}
-                  className="w-full bg-[#05060d] border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/60"
+                  className="w-full bg-[#07080f] border border-white/5 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/60"
                 />
               </div>
             </div>
             <div className="flex gap-2 justify-end pt-2">
               <button
                 onClick={() => setIsToonModalOpen(false)}
-                className="px-4 py-1.5 bg-[#131627] hover:bg-[#1a1e36] border border-white/10 rounded-lg text-xs transition-colors"
+                className="px-4 py-1.5 bg-[#07080f] hover:bg-[#1a1e36] border border-white/10 rounded-lg text-xs transition-colors"
               >
                 닫기
               </button>
@@ -1306,7 +1316,7 @@ export default function CastDashboard() {
       {/* 2. Point Adjust Modal */}
       {isPointModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="border border-white/10 bg-gradient-to-b from-[#14172e] to-[#0d0f20] max-w-sm w-full p-6 rounded-2xl space-y-4 shadow-2xl relative">
+          <div className="border border-white/5 bg-[#131629] max-w-sm w-full p-6 rounded-2xl space-y-4 shadow-2xl relative">
             <h2 className="text-sm font-black text-primary uppercase tracking-wider">
               🏆 {t("cast_modalPointAdjTitle")}
             </h2>
@@ -1317,7 +1327,7 @@ export default function CastDashboard() {
                   type="text"
                   value={adjName}
                   onChange={(e) => setAdjName(e.target.value)}
-                  className="w-full bg-[#05060d] border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/60"
+                  className="w-full bg-[#07080f] border border-white/5 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/60"
                   placeholder="예: 홍길동"
                 />
               </div>
@@ -1327,7 +1337,7 @@ export default function CastDashboard() {
                   type="number"
                   value={adjPoint}
                   onChange={(e) => setAdjPoint(e.target.value)}
-                  className="w-full bg-[#05060d] border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/60"
+                  className="w-full bg-[#07080f] border border-white/5 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/60"
                   placeholder="예: 50000"
                 />
               </div>
@@ -1335,7 +1345,7 @@ export default function CastDashboard() {
             <div className="flex gap-2 justify-end pt-2">
               <button
                 onClick={() => setIsPointModalOpen(false)}
-                className="px-4 py-1.5 bg-[#131627] hover:bg-[#1a1e36] border border-white/10 rounded-lg text-xs transition-colors"
+                className="px-4 py-1.5 bg-[#07080f] hover:bg-[#1a1e36] border border-white/10 rounded-lg text-xs transition-colors"
               >
                 닫기
               </button>
@@ -1345,6 +1355,45 @@ export default function CastDashboard() {
               >
                 조정 반영
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Embedded Settings iframe Modal */}
+      {settingsUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="border border-white/5 bg-[#131629] max-w-5xl w-full h-[85vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl relative">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-white/5 bg-[#0b0d1a]">
+              <div className="flex items-center gap-2">
+                <span className="text-base">⚙️</span>
+                <h2 className="text-sm font-black text-white uppercase tracking-wider">
+                  {settingsTitle}
+                </h2>
+              </div>
+              <button
+                onClick={() => setSettingsUrl(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-all text-lg"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* iframe container */}
+            <div className="flex-grow w-full h-full relative bg-[#07080f]">
+              {iframeLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#131629] z-10">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs text-slate-400 font-bold">설정 페이지 로딩 중...</span>
+                </div>
+              )}
+              <iframe
+                src={settingsUrl}
+                onLoad={() => setIframeLoading(false)}
+                className="w-full h-full border-none bg-white"
+              />
             </div>
           </div>
         </div>
