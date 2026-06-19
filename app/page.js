@@ -383,49 +383,43 @@ export default function Home() {
     if (!loginId || !loginPw) return;
 
     try {
-      /*
-         [CAFE24 PHP BACKEND CONNECTIVITY TEMPLATE]
-         
-         In Cafe24 Gnuboard environment, login is handled via POST to /bbs/login_check.php.
-         To authenticate from a decoupled Next.js react front-end, configure CORS on the PHP script:
-         e.g. header("Access-Control-Allow-Origin: https://your-nextjs-site.com");
-         
-         Example Payload:
-         const formData = new URLSearchParams();
-         formData.append('mb_id', loginId);
-         formData.append('mb_password', loginPw);
-         
-         const response = await fetch('https://tuber.co.kr/bbs/login_check_json.php', {
-           method: 'POST',
-           headers: {
-             'Content-Type': 'application/x-www-form-urlencoded',
-           },
-           body: formData
-         });
-         
-         const data = await response.json();
-         if (data.success) {
-           setUserSession({ id: data.mb_id, name: data.mb_name });
-           localStorage.setItem("tuber_user_session", JSON.stringify({ id: data.mb_id, name: data.mb_name }));
-           // Save session cookie/JWT if needed
-         }
-      */
-
-      // Simulated successful authentication flow
-      const mockUser = { id: loginId, name: loginId === "admin" ? "관리자계정" : loginId + "님" };
-      setUserSession(mockUser);
-      localStorage.setItem("tuber_user_session", JSON.stringify(mockUser));
+      // 1. API 파라미터 셋업 (x-www-form-urlencoded 형식)
+      const formData = new URLSearchParams();
+      formData.append('mb_id', loginId);
+      formData.append('mb_password', loginPw);
       
-      alert(`${t("loginSuccessMsg")}${mockUser.name}`);
+      // 2. Cafe24 그누보드 서버로 요청 전송
+      const response = await fetch('https://tuber.co.kr/bbs/login_check_json.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData
+      });
       
-      // Reset & Close Modal
-      setLoginId("");
-      setLoginPw("");
-      setIsAuthModalOpen(false);
-      setIsSidebarOpen(false);
+      const data = await response.json();
+      
+      // 3. 응답에 따른 처리
+      if (data.success) {
+        // 성공 시 React 세션 스테이트 설정 및 LocalStorage 저장
+        const user = { id: data.mb_id, name: data.mb_name, level: data.mb_level };
+        setUserSession(user);
+        localStorage.setItem("tuber_user_session", JSON.stringify(user));
+        
+        alert(`${t("loginSuccessMsg")}${user.name}`);
+        
+        // 입력 칸 리셋 및 모달 닫기
+        setLoginId("");
+        setLoginPw("");
+        setIsAuthModalOpen(false);
+        setIsSidebarOpen(false);
+      } else {
+        // 실패 시 에러 메시지 노출
+        alert(data.message || "로그인 정보가 일치하지 않습니다.");
+      }
     } catch (err) {
       console.error("Authentication Error: ", err);
-      alert("로그인 중 에러가 발생했습니다. (백엔드 연결을 확인하세요)");
+      alert("서버 연결에 실패했습니다. 네트워크 상태나 CORS 설정을 확인해 주세요.");
     }
   };
 
