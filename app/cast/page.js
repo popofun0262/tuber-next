@@ -72,8 +72,11 @@ export default function CastDashboard() {
   // Manual Donation Form States
   const [formName, setFormName] = useState("");
   const [formAmount, setFormAmount] = useState("");
-  const [formType, setFormType] = useState("sponsorship"); // sponsorship | sign
-  const [formMemo, setFormMemo] = useState("");
+  const [formPoint, setFormPoint] = useState("");
+  const [formFrequency, setFormFrequency] = useState("");
+  const [selectedRecipient, setSelectedRecipient] = useState("");
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [draggedIdx, setDraggedIdx] = useState(null);
 
   // Chat Form States
   const [chatInput, setChatInput] = useState("");
@@ -102,6 +105,12 @@ export default function CastDashboard() {
       setIsAuthorized(true);
     }
   }, [userSession, router]);
+
+  useEffect(() => {
+    if (userSession && userSession.id && !selectedRecipient) {
+      setSelectedRecipient(userSession.id);
+    }
+  }, [userSession, selectedRecipient]);
 
   // Main Polling Effects
   useEffect(() => {
@@ -179,8 +188,8 @@ export default function CastDashboard() {
     try {
       const res = await fetch(`https://tuber.co.kr/cast/api/get_ranking.php?mb_id=${userSession.id}&apikey=${userSession.apikey}&t=${Date.now()}`);
       const data = await res.json();
-      if (data && Array.isArray(data)) {
-        setRankings(data);
+      if (data && data.rows && Array.isArray(data.rows)) {
+        setRankings(data.rows);
       }
     } catch (e) {
       console.warn("Rankings poll error:", e);
@@ -191,8 +200,8 @@ export default function CastDashboard() {
     try {
       const res = await fetch(`https://tuber.co.kr/cast/api/get_donation_history.php?mb_id=${userSession.id}&apikey=${userSession.apikey}&t=${Date.now()}`);
       const data = await res.json();
-      if (data && Array.isArray(data)) {
-        setHistory(data);
+      if (data && data.rows && Array.isArray(data.rows)) {
+        setHistory(data.rows);
       }
     } catch (e) {
       console.warn("History poll error:", e);
@@ -286,6 +295,36 @@ export default function CastDashboard() {
       });
     } catch (e) {
       console.warn("Reorder save error:", e);
+    }
+  };
+
+  const handleDrop = async (e, targetIdx) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === targetIdx) return;
+
+    const reordered = [...widgets];
+    const draggedItem = reordered[draggedIdx];
+    reordered.splice(draggedIdx, 1);
+    reordered.splice(targetIdx, 0, draggedItem);
+
+    setWidgets(reordered);
+    setDraggedIdx(null);
+
+    // Save layouts order to server
+    try {
+      const orders = reordered.map((type, idx) => ({ type, order: idx }));
+      await fetch("https://tuber.co.kr/cast/api/save_widget_layout.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mb_id: userSession.id,
+          apikey: userSession.apikey,
+          action: "save_order",
+          orders: orders
+        })
+      });
+    } catch (err) {
+      console.warn("Reorder save error:", err);
     }
   };
 
@@ -436,29 +475,56 @@ export default function CastDashboard() {
     }
   };
 
+  const appendBJTag = (bjName) => {
+    setFormName((prev) => {
+      let val = prev.trim();
+      if (!val) val = "unknown";
+      if (val.includes("@")) {
+        val = val.split("@")[0].trim();
+      }
+      return val + "@" + bjName + " 감사합니다.";
+    });
+  };
+
   const handleManualDonation = async (e) => {
     e.preventDefault();
-    if (!formName || !formAmount) return;
+    if (!formName || (!formAmount && !formPoint && !formFrequency) || !selectedRecipient) {
+      alert("이름, 금액(또는 기여도/횟수), 멤버를 모두 확인해주세요.");
+      return;
+    }
+
+    const amountNum = parseFloat(formAmount) || 0;
+    const contribRaw = parseFloat(formPoint) || 0;
+    const contribution = (contribRaw > 0 && contribRaw <= 10 && amountNum > 0)
+      ? contribRaw * amountNum
+      : contribRaw;
+
     try {
-      await fetch("https://tuber.co.kr/cast/api/send_donation.php", {
+      const res = await fetch("https://tuber.co.kr/cast/api/send_donation.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mb_id: userSession.id,
-          apikey: userSession.apikey,
-          name: formName,
-          point: formAmount,
-          type: formType,
-          memo: formMemo
+          sender_name: formName,
+          amount: formAmount || 0,
+          contribution_val: contribution || 0,
+          frequency_val: formFrequency || 0,
+          recipient_id: selectedRecipient,
+          gs_owner: userSession.id,
+          apikey: userSession.apikey
         })
       });
-      alert("수동 후원이 등록되었습니다.");
-      setFormName("");
-      setFormAmount("");
-      setFormMemo("");
-      pollHistory();
-      pollRankings();
-    } catch (e) {
+      const data = await res.json();
+      if (data.result === "success") {
+        alert("수동 후원이 등록되었습니다.");
+        setFormAmount("");
+        setFormPoint("");
+        setFormFrequency("");
+        pollHistory();
+        pollRankings();
+      } else {
+        alert(data.message || "등록 실패");
+      }
+    } catch (err) {
       alert("등록 실패");
     }
   };
@@ -521,12 +587,12 @@ export default function CastDashboard() {
   if (!isAuthorized || widgets.length === 0) return null;
 
   return (
-    <div className="min-h-screen bg-bg-dark text-white pt-24 pb-16 px-4 md:px-8">
+    <div className="min-h-screen bg-bg-dark text-white pt-24 pb-16 px-4 md:px-6 font-sans">
       {/* 1. Header Area */}
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold flex items-center gap-2.5">
-            📺 {t("cast_title")}
+          <h1 className="text-2xl md:text-3xl font-black flex items-center gap-2.5 tracking-tight text-white">
+            📺 <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500">{t("cast_title")}</span>
           </h1>
           <p className="text-xs text-text-dim mt-1.5 leading-relaxed max-w-xl">
             {t("cast_desc")}
@@ -534,25 +600,29 @@ export default function CastDashboard() {
         </div>
 
         {/* Master Controls */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           <button
             onClick={() => setIsMuted(prev => !prev)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-              isMuted ? "bg-red-500/20 border-red-500/30 text-red-400" : "bg-white/5 border-white/10 text-text-dim hover:text-white"
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 border flex items-center gap-1.5 ${
+              isMuted 
+                ? "bg-red-500/10 border-red-500/30 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.15)]" 
+                : "bg-white/5 border-white/10 text-text-dim hover:text-white hover:bg-white/10"
             }`}
           >
             {isMuted ? "🔇 " + t("cast_btnMute") : "🔊 " + t("cast_btnMute")}
           </button>
           <button
             onClick={handleStopBgm}
-            className="px-4 py-2 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition-all"
+            className="px-4 py-2 bg-primary/10 border border-primary/20 hover:bg-primary/20 hover:border-primary/40 text-primary rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-1.5"
           >
             ⏹️ {t("cast_btnStopBgm")}
           </button>
           <button
             onClick={() => setIsEditable(prev => !prev)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-              isEditable ? "bg-primary text-bg-dark border-primary shadow-lg" : "bg-white/5 border-white/10 text-text-dim hover:text-white"
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 border flex items-center gap-1.5 ${
+              isEditable 
+                ? "bg-primary text-bg-dark border-primary shadow-[0_0_15px_rgba(0,240,255,0.4)]" 
+                : "bg-white/5 border-white/10 text-text-dim hover:text-white hover:bg-white/10"
             }`}
           >
             🛠️ {isEditable ? t("cast_editUnlocked") : t("cast_widgetEdit")}
@@ -561,248 +631,337 @@ export default function CastDashboard() {
       </div>
 
       {/* 2. Main content builder wrapper */}
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Column: Sorted Widgets List */}
+        {/* Left Column: Sorted Widgets 3-Column Grid */}
         <div className="lg:col-span-8 space-y-4">
-          {widgets.map((type, idx) => {
-            const label = WIDGET_LABELS[type]?.[lang] || WIDGET_LABELS[type]?.ko || type;
-            const icon = WIDGET_ICONS[type] || "🔹";
-            const isVisible = widgetStates[type] === 1;
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {widgets.map((type, idx) => {
+              const label = WIDGET_LABELS[type]?.[lang] || WIDGET_LABELS[type]?.ko || type;
+              const icon = WIDGET_ICONS[type] || "🔹";
+              const isVisible = widgetStates[type] === 1;
 
-            return (
-              <div
-                key={type}
-                className={`glass-panel border rounded-2xl p-4 flex flex-col gap-4 transition-all ${
-                  isEditable ? "border-dashed border-primary/40 bg-primary/2" : "border-white/5 bg-white/2"
-                }`}
-              >
-                {/* Header row */}
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl select-none">{icon}</span>
-                    <div>
-                      <h3 className="text-sm font-bold tracking-wide">{label}</h3>
-                      <span className="text-[10px] text-text-dim font-mono">{type}</span>
+              return (
+                <div
+                  key={type}
+                  draggable={isEditable}
+                  onDragStart={(e) => {
+                    setDraggedIdx(idx);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  className={`glass-panel border rounded-2xl p-4 flex flex-col justify-between gap-3.5 transition-all duration-300 relative ${
+                    draggedIdx === idx ? "opacity-40 border-dashed border-primary" : ""
+                  } ${
+                    isEditable 
+                      ? "border-dashed border-primary/30 bg-primary/2 hover:border-primary/60 cursor-grab active:cursor-grabbing" 
+                      : isVisible 
+                      ? "border-primary/25 bg-primary/2 shadow-[0_0_15px_rgba(0,240,255,0.04)]" 
+                      : "border-white/5 bg-white/2"
+                  }`}
+                >
+                  {/* Header row */}
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex items-center gap-2.5">
+                      {isEditable && (
+                        <div className="text-text-dim hover:text-white select-none text-base pr-1 font-mono">
+                          ⠿
+                        </div>
+                      )}
+                      <span className="text-xl select-none">{icon}</span>
+                      <div>
+                        <h3 className="text-xs font-black tracking-wide text-white">{label}</h3>
+                        <span className="text-[9px] text-text-dim font-mono uppercase block">{type}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {/* Status Toggle Switch */}
+                      {type !== "tuber" && (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleWidget(type, widgetStates[type])}
+                          className={`w-10 h-5 rounded-full p-0.5 transition-colors duration-300 relative ${
+                            isVisible ? "bg-emerald-500" : "bg-white/10"
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full bg-white transition-transform duration-300 shadow-md ${
+                            isVisible ? "translate-x-5" : "translate-x-0"
+                          }`} />
+                        </button>
+                      )}
+                      <span className={`text-[9px] font-black uppercase ${
+                        isVisible ? "text-emerald-400" : "text-text-dim"
+                      }`}>
+                        {isVisible ? "ON" : "OFF"}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    {/* Widget Order Controls */}
-                    {isEditable && (
-                      <div className="flex gap-1 mr-2">
+                  {/* Body actions depending on widget type */}
+                  {type === "spin" && (
+                    <div className="flex gap-1.5 mt-1">
+                      <input
+                        type="text"
+                        placeholder="룰렛 결과값 입력"
+                        value={spinInput}
+                        onChange={(e) => setSpinInput(e.target.value)}
+                        className="flex-grow bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors"
+                      />
+                      <button
+                        onClick={handleSpinSubmit}
+                        className="bg-primary hover:bg-primary/80 hover:shadow-[0_0_8px_rgba(0,240,255,0.4)] text-bg-dark text-[11px] font-black px-3.5 rounded-lg transition-all"
+                      >
+                        스핀 적용
+                      </button>
+                    </div>
+                  )}
+
+                  {type === "vs" && (
+                    <div className="flex gap-1.5 mt-1">
+                      <input
+                        type="number"
+                        placeholder="목표 금액(원) 입력"
+                        value={vsInput}
+                        onChange={(e) => setVsInput(e.target.value)}
+                        className="flex-grow bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors font-mono"
+                      />
+                      <button
+                        onClick={handleVsSubmit}
+                        className="bg-primary hover:bg-primary/80 hover:shadow-[0_0_8px_rgba(0,240,255,0.4)] text-bg-dark text-[11px] font-black px-3.5 rounded-lg transition-all"
+                      >
+                        목표 설정
+                      </button>
+                    </div>
+                  )}
+
+                  {type === "timer" && (
+                    <div className="flex flex-col gap-1.5 bg-black/30 p-2 rounded-xl border border-white/5 mt-1">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          placeholder="분"
+                          value={timer1Min}
+                          onChange={(e) => setTimer1Min(parseInt(e.target.value) || 0)}
+                          className="w-12 bg-black/60 border border-white/10 rounded-lg py-1 text-xs text-center text-white outline-none focus:border-primary/40 font-mono"
+                        />
+                        <span className="text-text-dim">:</span>
+                        <input
+                          type="number"
+                          placeholder="초"
+                          value={timer1Sec}
+                          onChange={(e) => setTimer1Sec(parseInt(e.target.value) || 0)}
+                          className="w-12 bg-black/60 border border-white/10 rounded-lg py-1 text-xs text-center text-white outline-none focus:border-primary/40 font-mono"
+                        />
                         <button
-                          disabled={idx === 0}
-                          onClick={() => handleMoveWidget(idx, "up")}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-xs disabled:opacity-30 hover:bg-white/10"
+                          onClick={() => handleControlTimer("start", 1)}
+                          className="flex-grow bg-primary hover:bg-primary/80 text-bg-dark text-[10px] font-black py-1 px-2 rounded-lg transition-colors"
                         >
-                          ▲
-                        </button>
-                        <button
-                          disabled={idx === widgets.length - 1}
-                          onClick={() => handleMoveWidget(idx, "down")}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-xs disabled:opacity-30 hover:bg-white/10"
-                        >
-                          ▼
+                          시작 (Start)
                         </button>
                       </div>
-                    )}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          onClick={() => handleControlTimer("pause", 1)}
+                          className="bg-white/5 border border-white/10 text-[10px] py-1 rounded-lg hover:bg-white/10 transition-colors text-text-dim hover:text-white"
+                        >
+                          일시정지
+                        </button>
+                        <button
+                          onClick={() => handleControlTimer("reset", 1)}
+                          className="bg-white/5 border border-white/10 text-[10px] py-1 rounded-lg hover:bg-white/10 transition-colors text-text-dim hover:text-white"
+                        >
+                          리셋
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-                    {/* Status Badge */}
-                    <span
-                      onClick={() => type !== "tuber" && handleToggleWidget(type, widgetStates[type])}
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-black cursor-pointer select-none transition-all ${
-                        isVisible
-                          ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
-                          : "bg-white/5 border border-white/5 text-text-dim"
-                      }`}
-                    >
-                      {isVisible ? "🟢 ON" : "⚪ OFF"}
-                    </span>
-                  </div>
+                  {type === "timer2" && (
+                    <div className="flex flex-col gap-1.5 bg-black/30 p-2 rounded-xl border border-white/5 mt-1">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          placeholder="분"
+                          value={timer2Min}
+                          onChange={(e) => setTimer2Min(parseInt(e.target.value) || 0)}
+                          className="w-12 bg-black/60 border border-white/10 rounded-lg py-1 text-xs text-center text-white outline-none focus:border-primary/40 font-mono"
+                        />
+                        <span className="text-text-dim">:</span>
+                        <input
+                          type="number"
+                          placeholder="초"
+                          value={timer2Sec}
+                          onChange={(e) => setTimer2Sec(parseInt(e.target.value) || 0)}
+                          className="w-12 bg-black/60 border border-white/10 rounded-lg py-1 text-xs text-center text-white outline-none focus:border-primary/40 font-mono"
+                        />
+                        <button
+                          onClick={() => handleControlTimer("start", 2)}
+                          className="flex-grow bg-primary hover:bg-primary/80 text-bg-dark text-[10px] font-black py-1 px-2 rounded-lg transition-colors"
+                        >
+                          시작 (Start)
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          onClick={() => handleControlTimer("pause", 2)}
+                          className="bg-white/5 border border-white/10 text-[10px] py-1 rounded-lg hover:bg-white/10 transition-colors text-text-dim hover:text-white"
+                        >
+                          일시정지
+                        </button>
+                        <button
+                          onClick={() => handleControlTimer("reset", 2)}
+                          className="bg-white/5 border border-white/10 text-[10px] py-1 rounded-lg hover:bg-white/10 transition-colors text-text-dim hover:text-white"
+                        >
+                          리셋
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {type === "toonation" && (
+                    <div className="flex gap-1.5 mt-1">
+                      <button
+                        onClick={() => setIsToonModalOpen(true)}
+                        className="bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-[10px] font-black px-2.5 py-1.5 rounded-lg flex-1 transition-colors"
+                      >
+                        🔌 투네이션 연동 키설정
+                      </button>
+                      <button
+                        onClick={() => setIsToonModalOpen(true)}
+                        className="bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-300 text-[10px] font-black px-2.5 py-1.5 rounded-lg flex-1 transition-colors"
+                      >
+                        🔌 팬더TV 연동 키설정
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Footer action buttons row */}
+                  {type !== "tuber" && type !== "toonation" && (
+                    <div className="flex gap-1 border-t border-white/5 pt-2.5 mt-1">
+                      <button
+                        onClick={() => window.open(`https://tuber.co.kr/cast/widget_${type}.html?mb_id=${userSession.id}&apikey=${userSession.apikey}`, "_blank")}
+                        className="py-1 px-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold transition-all flex-1 text-center whitespace-nowrap overflow-hidden text-ellipsis"
+                        title={t("cast_btnOpenScreen")}
+                      >
+                        🖥️ 송출화면
+                      </button>
+                      <button
+                        onClick={() => handleCopyLink(type)}
+                        className="py-1 px-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold transition-all flex-1 text-center whitespace-nowrap overflow-hidden text-ellipsis"
+                        title={t("cast_btnCopyLink")}
+                      >
+                        📋 주소복사
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (type === "starter") {
+                            router.push("/starter");
+                          } else {
+                            window.open(`https://tuber.co.kr/cast/${type}_settings.php?mb_id=${userSession.id}&apikey=${userSession.apikey}`, "_blank");
+                          }
+                        }}
+                        className="py-1 px-1.5 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-lg text-[10px] font-bold transition-all flex-1 text-center whitespace-nowrap overflow-hidden text-ellipsis"
+                        title={t("cast_btnSettings")}
+                      >
+                        ⚙️ 설정하기
+                      </button>
+                    </div>
+                  )}
                 </div>
-
-                {/* Body action controls depending on widget type */}
-                {type === "spin" && (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="룰렛 지정값 입력"
-                      value={spinInput}
-                      onChange={(e) => setSpinInput(e.target.value)}
-                      className="flex-grow bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white"
-                    />
-                    <button
-                      onClick={handleSpinSubmit}
-                      className="bg-primary hover:bg-primary/80 text-bg-dark text-xs font-bold px-4 rounded-lg"
-                    >
-                      스핀 적용
-                    </button>
-                  </div>
-                )}
-
-                {type === "vs" && (
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      placeholder="목표 금액(원) 입력"
-                      value={vsInput}
-                      onChange={(e) => setVsInput(e.target.value)}
-                      className="flex-grow bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white"
-                    />
-                    <button
-                      onClick={handleVsSubmit}
-                      className="bg-primary hover:bg-primary/80 text-bg-dark text-xs font-bold px-4 rounded-lg"
-                    >
-                      목표 설정
-                    </button>
-                  </div>
-                )}
-
-                {type === "timer" && (
-                  <div className="flex flex-col gap-2 bg-black/35 p-3 rounded-xl border border-white/5">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        placeholder="분"
-                        value={timer1Min}
-                        onChange={(e) => setTimer1Min(parseInt(e.target.value) || 0)}
-                        className="w-16 bg-black/50 border border-white/10 rounded-lg px-2 py-1 text-xs text-center"
-                      />
-                      <span>:</span>
-                      <input
-                        type="number"
-                        placeholder="초"
-                        value={timer1Sec}
-                        onChange={(e) => setTimer1Sec(parseInt(e.target.value) || 0)}
-                        className="w-16 bg-black/50 border border-white/10 rounded-lg px-2 py-1 text-xs text-center"
-                      />
-                      <button
-                        onClick={() => handleControlTimer("start", 1)}
-                        className="flex-grow bg-primary hover:bg-primary/80 text-bg-dark text-xs font-bold py-1 px-3 rounded-lg"
-                      >
-                        시작 (Start)
-                      </button>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleControlTimer("pause", 1)}
-                        className="flex-1 bg-white/5 border border-white/10 text-xs py-1 rounded-lg hover:bg-white/10"
-                      >
-                        일시정지 (Pause)
-                      </button>
-                      <button
-                        onClick={() => handleControlTimer("reset", 1)}
-                        className="flex-1 bg-white/5 border border-white/10 text-xs py-1 rounded-lg hover:bg-white/10"
-                      >
-                        리셋 (Reset)
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {type === "timer2" && (
-                  <div className="flex flex-col gap-2 bg-black/35 p-3 rounded-xl border border-white/5">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        placeholder="분"
-                        value={timer2Min}
-                        onChange={(e) => setTimer2Min(parseInt(e.target.value) || 0)}
-                        className="w-16 bg-black/50 border border-white/10 rounded-lg px-2 py-1 text-xs text-center"
-                      />
-                      <span>:</span>
-                      <input
-                        type="number"
-                        placeholder="초"
-                        value={timer2Sec}
-                        onChange={(e) => setTimer2Sec(parseInt(e.target.value) || 0)}
-                        className="w-16 bg-black/50 border border-white/10 rounded-lg px-2 py-1 text-xs text-center"
-                      />
-                      <button
-                        onClick={() => handleControlTimer("start", 2)}
-                        className="flex-grow bg-primary hover:bg-primary/80 text-bg-dark text-xs font-bold py-1 px-3 rounded-lg"
-                      >
-                        시작 (Start)
-                      </button>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleControlTimer("pause", 2)}
-                        className="flex-1 bg-white/5 border border-white/10 text-xs py-1 rounded-lg hover:bg-white/10"
-                      >
-                        일시정지 (Pause)
-                      </button>
-                      <button
-                        onClick={() => handleControlTimer("reset", 2)}
-                        className="flex-1 bg-white/5 border border-white/10 text-xs py-1 rounded-lg hover:bg-white/10"
-                      >
-                        리셋 (Reset)
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {type === "toonation" && (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setIsToonModalOpen(true)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg flex-1"
-                    >
-                      🔌 투네이션 연동 키설정
-                    </button>
-                    <button
-                      onClick={() => setIsToonModalOpen(true)}
-                      className="bg-amber-600 hover:bg-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg flex-1"
-                    >
-                      🔌 팬더TV 연동 키설정
-                    </button>
-                  </div>
-                )}
-
-                {/* Footer action buttons row */}
-                {type !== "tuber" && type !== "toonation" && (
-                  <div className="flex gap-2 border-t border-white/5 pt-3">
-                    <button
-                      onClick={() => window.open(`https://tuber.co.kr/cast/widget_${type}.html?mb_id=${userSession.id}&apikey=${userSession.apikey}`, "_blank")}
-                      className="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold transition-all flex-1"
-                    >
-                      🖥️ {t("cast_btnOpenScreen")}
-                    </button>
-                    <button
-                      onClick={() => handleCopyLink(type)}
-                      className="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold transition-all flex-1"
-                    >
-                      📋 {t("cast_btnCopyLink")}
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (type === "starter") {
-                          router.push("/starter");
-                        } else {
-                          window.open(`https://tuber.co.kr/cast/${type}_settings.php?mb_id=${userSession.id}&apikey=${userSession.apikey}`, "_blank");
-                        }
-                      }}
-                      className="px-3.5 py-1.5 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold transition-all flex-1"
-                    >
-                      ⚙️ {t("cast_btnSettings")}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         {/* Right Column: Console Sidebar Control Board */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="glass-panel border border-white/10 bg-white/2 rounded-2xl overflow-hidden shadow-xl">
-            {/* Tabs */}
-            <div className="flex border-b border-white/10 bg-black/40">
+        <div className="lg:col-span-4 space-y-4">
+          
+          {/* Streamer Profile Card */}
+          <div className="glass-panel border border-white/10 bg-white/2 rounded-2xl p-4 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+            
+            <h3 className="text-xs font-black text-primary uppercase tracking-wider mb-4 flex items-center gap-2">
+              🪪 스트리머 프로필
+            </h3>
+            
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <span className="text-text-dim font-bold">아이디</span>
+                <span className="text-white font-black font-mono">{userSession.id}</span>
+              </div>
+              
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <span className="text-text-dim font-bold">API Key</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-primary font-bold font-mono tracking-wider">
+                    {apiKeyVisible ? userSession.apikey : "••••••••••••••••"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setApiKeyVisible(!apiKeyVisible)}
+                    className="text-text-dim hover:text-white transition-colors"
+                    title="보이기/숨기기"
+                  >
+                    {apiKeyVisible ? "👁️" : "👁️‍🗨️"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(userSession.apikey);
+                      alert("API Key가 클립보드에 복사되었습니다.");
+                    }}
+                    className="text-text-dim hover:text-white transition-colors"
+                    title="복사"
+                  >
+                    📋
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <span className="text-text-dim font-bold">이용 기한</span>
+                <span className="text-white font-medium flex items-center gap-1 font-mono">
+                  📅 {userSession.expireDate || "무제한"}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-text-dim font-bold">라이센스 등급</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border uppercase tracking-wider ${
+                  userSession.level >= 10
+                    ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
+                    : userSession.level >= 5
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                    : userSession.level === 4
+                    ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                    : userSession.level === 3
+                    ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
+                    : "bg-slate-500/10 border-slate-500/30 text-slate-400"
+                }`}>
+                  {userSession.level >= 10
+                    ? "최고 관리자"
+                    : userSession.level >= 5
+                    ? "VIP 프리미엄"
+                    : userSession.level === 4
+                    ? "프리미엄"
+                    : userSession.level === 3
+                    ? "베이직"
+                    : "일반 회원"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Console Tabs Card */}
+          <div className="glass-panel border border-white/10 bg-white/2 rounded-2xl overflow-hidden shadow-xl flex flex-col">
+            {/* Tabs Headers */}
+            <div className="flex border-b border-white/5 bg-black/40">
               <button
                 onClick={() => setActiveTab("ranking")}
                 className={`flex-1 py-3 text-xs font-black tracking-wide border-b-2 transition-all ${
-                  activeTab === "ranking" ? "border-primary text-primary" : "border-transparent text-text-dim hover:text-white"
+                  activeTab === "ranking" ? "border-primary text-primary bg-primary/2" : "border-transparent text-text-dim hover:text-white hover:bg-white/2"
                 }`}
               >
                 🏆 랭킹 보드
@@ -810,7 +969,7 @@ export default function CastDashboard() {
               <button
                 onClick={() => setActiveTab("log")}
                 className={`flex-1 py-3 text-xs font-black tracking-wide border-b-2 transition-all ${
-                  activeTab === "log" ? "border-primary text-primary" : "border-transparent text-text-dim hover:text-white"
+                  activeTab === "log" ? "border-primary text-primary bg-primary/2" : "border-transparent text-text-dim hover:text-white hover:bg-white/2"
                 }`}
               >
                 📜 활동로그
@@ -818,7 +977,7 @@ export default function CastDashboard() {
               <button
                 onClick={() => setActiveTab("chat")}
                 className={`flex-1 py-3 text-xs font-black tracking-wide border-b-2 transition-all ${
-                  activeTab === "chat" ? "border-primary text-primary" : "border-transparent text-text-dim hover:text-white"
+                  activeTab === "chat" ? "border-primary text-primary bg-primary/2" : "border-transparent text-text-dim hover:text-white hover:bg-white/2"
                 }`}
               >
                 💬 채팅창
@@ -826,23 +985,23 @@ export default function CastDashboard() {
             </div>
 
             {/* Tab content area */}
-            <div className="p-4">
+            <div className="p-4 flex-grow">
               {activeTab === "ranking" && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <h3 className="text-xs font-black text-primary uppercase tracking-wider">
                       {t("cast_todayRankings")}
                     </h3>
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1">
                       <button
                         onClick={() => setIsPointModalOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-[10px] font-bold px-2 py-1 rounded"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-[10px] font-bold px-2 py-1 rounded transition-colors"
                       >
                         점수조정
                       </button>
                       <button
                         onClick={handleResetRankings}
-                        className="bg-red-600 hover:bg-red-700 text-[10px] font-bold px-2 py-1 rounded"
+                        className="bg-red-600 hover:bg-red-700 text-[10px] font-bold px-2 py-1 rounded transition-colors"
                       >
                         {t("cast_btnResetRanking")}
                       </button>
@@ -851,28 +1010,34 @@ export default function CastDashboard() {
 
                   <div className="bg-black/40 border border-white/5 rounded-xl overflow-hidden max-h-[300px] overflow-y-auto">
                     <table className="w-full text-xs text-left">
-                      <thead className="bg-white/5 text-[10px] font-black text-text-dim uppercase tracking-wider border-b border-white/5">
+                      <thead className="bg-white/5 text-[9px] font-black text-text-dim uppercase tracking-wider border-b border-white/5">
                         <tr>
                           <th className="px-3 py-2">닉네임</th>
                           <th className="px-3 py-2 text-right">매출</th>
                           <th className="px-3 py-2 text-right">점수</th>
+                          <th className="px-3 py-2 text-right">기타</th>
                         </tr>
                       </thead>
                       <tbody>
                         {rankings.length === 0 ? (
                           <tr>
-                            <td colSpan="3" className="text-center py-6 text-text-dim font-medium">
+                            <td colSpan="4" className="text-center py-8 text-text-dim font-medium">
                               집계된 데이터가 없습니다.
                             </td>
                           </tr>
                         ) : (
-                          rankings.map((r, i) => (
-                            <tr key={i} className="border-b border-white/5 hover:bg-white/2">
-                              <td className="px-3 py-2.5 font-bold">{r.name}</td>
-                              <td className="px-3 py-2.5 text-right font-mono">₩{(r.amount || 0).toLocaleString()}</td>
-                              <td className="px-3 py-2.5 text-right font-mono text-primary font-bold">{r.score || r.point || 0}</td>
-                            </tr>
-                          ))
+                          rankings.map((r, i) => {
+                            const bjDisplayName = r.mb_nick || r.mb_name || r.mb_id;
+                            const totalScore = (r.mb_point || 0) + (r.contribution || 0);
+                            return (
+                              <tr key={i} className="border-b border-white/5 hover:bg-white/2 transition-colors">
+                                <td className="px-3 py-2.5 font-bold text-white">{bjDisplayName}</td>
+                                <td className="px-3 py-2.5 text-right font-mono text-white/80">₩{(r.mb_point || 0).toLocaleString()}</td>
+                                <td className="px-3 py-2.5 text-right font-mono text-primary font-bold">{(totalScore).toLocaleString()}</td>
+                                <td className="px-3 py-2.5 text-right font-mono text-text-dim">{r.frequency || 0}</td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
@@ -886,69 +1051,164 @@ export default function CastDashboard() {
                     <h3 className="text-xs font-black text-primary uppercase tracking-wider">
                       {t("cast_activityLog")}
                     </h3>
-                    <button
-                      onClick={handleResetHistory}
-                      className="bg-red-600 hover:bg-red-700 text-[10px] font-bold px-2 py-1 rounded"
-                    >
-                      {t("cast_btnResetHistory")}
-                    </button>
+                    <div className="flex gap-1.5 items-center">
+                      <a
+                        href={`https://tuber.co.kr/cast/api/export_donation_history.php?mb_id=${userSession.id}&apikey=${userSession.apikey}&mode=all`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-[10px] font-bold px-2 py-1 rounded transition-colors text-white text-center whitespace-nowrap"
+                      >
+                        📊 XLS(전체)
+                      </a>
+                      <a
+                        href={`https://tuber.co.kr/cast/api/export_donation_history.php?mb_id=${userSession.id}&apikey=${userSession.apikey}&mode=today`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-[10px] font-bold px-2 py-1 rounded transition-colors text-white text-center whitespace-nowrap"
+                      >
+                        📊 XLS(금일)
+                      </a>
+                      <button
+                        onClick={handleResetHistory}
+                        className="bg-red-600 hover:bg-red-700 text-[10px] font-bold px-2 py-1 rounded transition-colors text-white"
+                      >
+                        {t("cast_btnResetHistory")}
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Manual Sponsorship form */}
-                  <form onSubmit={handleManualDonation} className="bg-white/5 border border-white/5 p-3 rounded-xl space-y-2">
+                  {/* Manual Sponsorship Form */}
+                  <form onSubmit={handleManualDonation} className="bg-white/5 border border-white/5 p-3 rounded-xl space-y-3 shadow-inner">
                     <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        placeholder="닉네임"
-                        required
-                        value={formName}
-                        onChange={(e) => setFormName(e.target.value)}
-                        className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white"
-                      />
-                      <input
-                        type="number"
-                        placeholder="후원금액"
-                        required
-                        value={formAmount}
-                        onChange={(e) => setFormAmount(e.target.value)}
-                        className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white"
-                      />
+                      <div className="space-y-1">
+                        <label className="block text-[10px] text-text-dim uppercase">닉네임</label>
+                        <input
+                          type="text"
+                          required
+                          value={formName}
+                          onChange={(e) => setFormName(e.target.value)}
+                          className="w-full bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary/45"
+                          placeholder="홍길동"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-[10px] text-text-dim uppercase">후원금액</label>
+                        <input
+                          type="number"
+                          value={formAmount}
+                          onChange={(e) => setFormAmount(e.target.value)}
+                          className="w-full bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary/45 font-mono"
+                          placeholder="10000"
+                        />
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <select
-                        value={formType}
-                        onChange={(e) => setFormType(e.target.value)}
-                        className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white"
-                      >
-                        <option value="sponsorship">일반후원</option>
-                        <option value="sign">시그니처</option>
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="메모/미션내용"
-                        value={formMemo}
-                        onChange={(e) => setFormMemo(e.target.value)}
-                        className="flex-grow bg-black/50 border border-white/10 rounded px-2 py-1 text-xs text-white"
-                      />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1 relative">
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[10px] text-text-dim uppercase">점수 (배율)</label>
+                          {/* Live points calculations */}
+                          {parseFloat(formPoint) > 0 && parseFloat(formPoint) <= 10 && parseFloat(formAmount) > 0 && (
+                            <span className="text-[9px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.2 rounded font-bold">
+                              × ₩{(parseFloat(formAmount)).toLocaleString()} = {(parseFloat(formPoint) * parseFloat(formAmount)).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="number"
+                          step="any"
+                          value={formPoint}
+                          onChange={(e) => setFormPoint(e.target.value)}
+                          className="w-full bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary/45 font-mono"
+                          placeholder="1"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-[10px] text-text-dim uppercase">횟수 (기타)</label>
+                        <input
+                          type="number"
+                          value={formFrequency}
+                          onChange={(e) => setFormFrequency(e.target.value)}
+                          className="w-full bg-black/60 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary/45 font-mono"
+                          placeholder="0"
+                        />
+                      </div>
                     </div>
+
+                    {/* Member selection grid (Recipient BJ) */}
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] text-text-dim uppercase tracking-wider">멤버 선택 (수혜 BJ)</label>
+                      <div className="flex flex-wrap gap-1.5 p-2 bg-black/45 rounded-xl border border-white/5 max-h-[100px] overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedRecipient(userSession.id);
+                            appendBJTag(userSession.name || userSession.id);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                            selectedRecipient === userSession.id
+                              ? "bg-primary/20 border-primary text-primary shadow-[0_0_8px_rgba(0,240,255,0.25)]"
+                              : "bg-white/5 border-white/10 text-text-dim hover:text-white"
+                          }`}
+                        >
+                          🌟 {userSession.id} (나)
+                        </button>
+                        {rankings
+                          .filter(r => r.mb_id !== userSession.id)
+                          .map((r, i) => {
+                            const bjName = r.mb_nick || r.mb_name || r.mb_id;
+                            return (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedRecipient(r.mb_id);
+                                  appendBJTag(bjName);
+                                }}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                                  selectedRecipient === r.mb_id
+                                    ? "bg-primary/20 border-primary text-primary shadow-[0_0_8px_rgba(0,240,255,0.25)]"
+                                    : "bg-white/5 border-white/10 text-text-dim hover:text-white"
+                                }`}
+                              >
+                                👤 {bjName}
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+
                     <button
                       type="submit"
-                      className="w-full bg-primary hover:bg-primary/80 text-bg-dark text-xs font-bold py-1 px-3 rounded-lg"
+                      className="w-full bg-primary hover:bg-primary/95 text-bg-dark text-xs font-black py-2 px-3 rounded-lg shadow-md hover:shadow-[0_0_12px_rgba(0,240,255,0.4)] transition-all duration-300"
                     >
-                      {t("cast_btnSubmit")}
+                      📡 {t("cast_btnSubmit")}
                     </button>
                   </form>
 
-                  <div className="bg-black/40 border border-white/5 rounded-xl p-3 max-h-[300px] overflow-y-auto space-y-2">
+                  {/* Logs list output */}
+                  <div className="bg-black/40 border border-white/5 rounded-xl p-3 max-h-[250px] overflow-y-auto space-y-2">
                     {history.length === 0 ? (
-                      <p className="text-center py-6 text-xs text-text-dim font-medium">로그 기록이 없습니다.</p>
+                      <p className="text-center py-8 text-xs text-text-dim font-medium">로그 기록이 없습니다.</p>
                     ) : (
                       history.map((log, idx) => (
-                        <div key={idx} className="text-xs border-b border-white/5 pb-1.5 last:border-0">
-                          <span className="text-[10px] text-text-dim mr-2">{log.time || log.date || ""}</span>
-                          <strong className="text-primary">{log.name}</strong> 
-                          <span className="text-emerald-400 font-bold ml-1">₩{(log.amount || log.point || 0).toLocaleString()}</span>
-                          {log.memo && <p className="text-text-dim text-[11px] mt-0.5">{log.memo}</p>}
+                        <div key={idx} className="text-xs border-b border-white/5 pb-2 last:border-0 pt-1 flex flex-col gap-0.5">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-1.5">
+                              <strong className="text-white font-bold">{log.sender}</strong>
+                              <span className="text-[10px] text-text-dim">➡️</span>
+                              <span className="text-primary font-bold text-[11px]">{log.recipient_name}</span>
+                            </div>
+                            <span className="text-[9px] text-text-dim font-mono">{log.datetime}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="text-emerald-400 font-extrabold font-mono">
+                              ₩{(log.point || 0).toLocaleString()}
+                            </span>
+                            <span className="text-primary font-bold font-mono text-[9px]">
+                              점수: {(log.contribution || 0).toLocaleString()}
+                            </span>
+                          </div>
                         </div>
                       ))
                     )}
@@ -964,28 +1224,28 @@ export default function CastDashboard() {
 
                   <div className="bg-black/40 border border-white/5 rounded-xl p-3 h-[250px] overflow-y-auto space-y-2 font-mono text-xs">
                     {chats.length === 0 ? (
-                      <p className="text-center py-6 text-text-dim">채팅 로그가 없습니다.</p>
+                      <p className="text-center py-8 text-text-dim">채팅 로그가 없습니다.</p>
                     ) : (
                       chats.map((c, i) => (
-                        <div key={i} className="leading-relaxed">
-                          <span className="text-primary font-bold mr-1.5">{c.author}:</span>
-                          <span className="text-text-dim">{c.message}</span>
+                        <div key={i} className="leading-relaxed border-b border-white/5 pb-1 last:border-0">
+                          <span className="text-primary font-black mr-1.5">{c.author}:</span>
+                          <span className="text-white/80">{c.message}</span>
                         </div>
                       ))
                     )}
                   </div>
 
-                  <form onSubmit={handleSendChat} className="flex gap-2">
+                  <form onSubmit={handleSendChat} className="flex gap-1.5">
                     <input
                       type="text"
                       placeholder="채팅 메시지 입력..."
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
-                      className="flex-grow bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white"
+                      className="flex-grow bg-black/60 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-white/20 focus:border-primary/50 outline-none transition-colors"
                     />
                     <button
                       type="submit"
-                      className="bg-primary hover:bg-primary/80 text-bg-dark text-xs font-bold px-4 rounded-lg"
+                      className="bg-primary hover:bg-primary/90 text-bg-dark text-xs font-black px-4 rounded-lg transition-colors"
                     >
                       전송
                     </button>
@@ -1000,41 +1260,41 @@ export default function CastDashboard() {
       {/* --- Modals --- */}
       {/* 1. Toonation Modal */}
       {isToonModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
-          <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-white/10 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-white/10 space-y-4 shadow-2xl relative">
             <h2 className="text-sm font-black text-primary uppercase tracking-wider">
               🔌 {t("cast_modalToonationTitle")}
             </h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-[10px] text-text-dim mb-1 uppercase">Toonation API Payload Key</label>
+                <label className="block text-[10px] text-text-dim mb-1 uppercase font-bold">Toonation API Payload Key</label>
                 <input
                   type="password"
                   value={toonKey}
                   onChange={(e) => setToonKey(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs"
+                  className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/45"
                 />
               </div>
               <div>
-                <label className="block text-[10px] text-text-dim mb-1 uppercase">PandaTV Webhook Security Token</label>
+                <label className="block text-[10px] text-text-dim mb-1 uppercase font-bold">PandaTV Webhook Security Token</label>
                 <input
                   type="password"
                   value={pandaKey}
                   onChange={(e) => setPandaKey(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs"
+                  className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/45"
                 />
               </div>
             </div>
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end pt-2">
               <button
                 onClick={() => setIsToonModalOpen(false)}
-                className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs"
+                className="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs transition-colors"
               >
                 닫기
               </button>
               <button
                 onClick={handleToonSave}
-                className="px-4 py-1.5 bg-primary text-bg-dark font-bold rounded-lg text-xs"
+                className="px-4 py-1.5 bg-primary text-bg-dark font-black rounded-lg text-xs hover:bg-primary/95 transition-colors"
               >
                 설정 저장
               </button>
@@ -1045,43 +1305,43 @@ export default function CastDashboard() {
 
       {/* 2. Point Adjust Modal */}
       {isPointModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
-          <div className="glass-panel max-w-sm w-full p-6 rounded-2xl border border-white/10 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="glass-panel max-w-sm w-full p-6 rounded-2xl border border-white/10 space-y-4 shadow-2xl relative">
             <h2 className="text-sm font-black text-primary uppercase tracking-wider">
               🏆 {t("cast_modalPointAdjTitle")}
             </h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-[10px] text-text-dim mb-1">시청자 닉네임</label>
+                <label className="block text-[10px] text-text-dim mb-1 font-bold">시청자 닉네임</label>
                 <input
                   type="text"
                   value={adjName}
                   onChange={(e) => setAdjName(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs"
+                  className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/45"
                   placeholder="예: 홍길동"
                 />
               </div>
               <div>
-                <label className="block text-[10px] text-text-dim mb-1">조정할 포인트 (+ / - 입력 가능)</label>
+                <label className="block text-[10px] text-text-dim mb-1 font-bold">조정할 포인트 (+ / - 입력 가능)</label>
                 <input
                   type="number"
                   value={adjPoint}
                   onChange={(e) => setAdjPoint(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs"
+                  className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary/45"
                   placeholder="예: 50000"
                 />
               </div>
             </div>
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end pt-2">
               <button
                 onClick={() => setIsPointModalOpen(false)}
-                className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs"
+                className="px-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs transition-colors"
               >
                 닫기
               </button>
               <button
                 onClick={handlePointAdjust}
-                className="px-4 py-1.5 bg-primary text-bg-dark font-bold rounded-lg text-xs"
+                className="px-4 py-1.5 bg-primary text-bg-dark font-black rounded-lg text-xs hover:bg-primary/95 transition-colors"
               >
                 조정 반영
               </button>
