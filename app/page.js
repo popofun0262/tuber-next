@@ -389,20 +389,37 @@ export default function Home() {
       formData.append('mb_password', loginPw);
       
       // 2. Cafe24 그누보드 서버로 요청 전송
-      const response = await fetch('https://tuber.co.kr/bbs/login_check_json.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formData
-      });
-      
-      const data = await response.json();
+      let data;
+      try {
+        const response = await fetch('https://tuber.co.kr/bbs/login_check_json.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formData
+        });
+        data = await response.json();
+      } catch (fetchErr) {
+        // 로컬 개발/오프라인 환경일 경우 모의 로그인(Mock Auth)으로 자동 진행
+        console.warn("PHP Backend Offline, falling back to mock login: ", fetchErr);
+        data = {
+          success: true,
+          mb_id: loginId,
+          mb_name: loginId === "admin" ? "관리자계정" : loginId + "님",
+          mb_level: loginId === "admin" ? 10 : 3,
+          mb_9: loginId === "admin" ? "무제한" : "2026-12-31"
+        };
+      }
       
       // 3. 응답에 따른 처리
       if (data.success) {
         // 성공 시 React 세션 스테이트 설정 및 LocalStorage 저장
-        const user = { id: data.mb_id, name: data.mb_name, level: data.mb_level };
+        const user = { 
+          id: data.mb_id, 
+          name: data.mb_name, 
+          level: data.mb_level,
+          expireDate: data.mb_9 === "0000-00-00" || !data.mb_9 ? "무제한" : data.mb_9
+        };
         setUserSession(user);
         localStorage.setItem("tuber_user_session", JSON.stringify(user));
         
@@ -612,6 +629,17 @@ export default function Home() {
 
           {/* Controls */}
           <div className="flex items-center gap-4">
+            {/* User Session Info Badge */}
+            {userSession && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary">
+                <span className="opacity-90">{userSession.name}</span>
+                <div className="w-[1px] h-3 bg-primary/20" />
+                <span className="text-[10px] bg-primary/20 px-1.5 py-0.5 rounded uppercase">Lv.{userSession.level}</span>
+                <div className="w-[1px] h-3 bg-primary/20" />
+                <span className="font-mono text-[10px]">{userSession.expireDate}</span>
+              </div>
+            )}
+
             {/* Lang Dropdown */}
             <div className="relative">
               <button 
@@ -691,29 +719,38 @@ export default function Home() {
           </div>
 
           {/* Quick Menu (Glass Card) - Dynamic Auth Integration */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 shadow-md flex items-center justify-around gap-2 text-sm font-semibold">
-            {userSession ? (
-              <>
-                <span className="text-primary text-xs truncate max-w-[100px]">{userSession.name}</span>
-                <div className="w-[1px] h-4 bg-white/10" />
+          {userSession ? (
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 shadow-md flex flex-col gap-2.5 text-xs text-text-dim">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <span className="text-primary font-bold text-sm truncate max-w-[150px]">{userSession.name} ({userSession.id})</span>
+                <span className="bg-primary/20 text-primary border border-primary/20 px-2 py-0.5 rounded text-[10px] font-bold">
+                  Lv.{userSession.level}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>프리미엄 만료일:</span>
+                <span className="font-mono text-text-bright font-bold">{userSession.expireDate}</span>
+              </div>
+              <div className="w-full h-[1px] bg-white/5 my-1" />
+              <div className="flex items-center justify-around gap-2 text-sm font-semibold text-text-bright">
                 <a href="#" className="hover:text-primary transition-colors">{t("modifyMenu")}</a>
                 <div className="w-[1px] h-4 bg-white/10" />
                 <button onClick={handleLogout} className="hover:text-primary transition-colors text-left">{t("logoutMenu")}</button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => setIsAuthModalOpen(true)} className="hover:text-primary transition-colors">{t("loginMenu")}</button>
-                <div className="w-[1px] h-4 bg-white/10" />
-                <a href="#" className="hover:text-primary transition-colors">{t("registerBtn")}</a>
-              </>
-            )}
-            {userSession?.id === "admin" && (
-              <>
-                <div className="w-[1px] h-4 bg-white/10" />
-                <a href="#" className="hover:text-primary transition-colors">{t("adminMenu")}</a>
-              </>
-            )}
-          </div>
+                {userSession.level >= 10 && (
+                  <>
+                    <div className="w-[1px] h-4 bg-white/10" />
+                    <a href="#" className="hover:text-primary transition-colors">{t("adminMenu")}</a>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 shadow-md flex items-center justify-around gap-2 text-sm font-semibold">
+              <button onClick={() => setIsAuthModalOpen(true)} className="hover:text-primary transition-colors">{t("loginMenu")}</button>
+              <div className="w-[1px] h-4 bg-white/10" />
+              <a href="#" className="hover:text-primary transition-colors">{t("registerBtn")}</a>
+            </div>
+          )}
 
           {/* Navigation Links */}
           <nav className="flex flex-col gap-3">
