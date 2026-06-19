@@ -27,6 +27,10 @@ export default function Header() {
     { name: t("navEntertainment"), path: "/entertainment" },
   ];
 
+  if (userSession && userSession.level >= 4) {
+    menuItems.push({ name: t("starter_title"), path: "/starter" });
+  }
+
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 border-b border-white/5 ${

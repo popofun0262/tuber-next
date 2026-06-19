@@ -63,8 +63,9 @@ export function AppContextProvider({ children }) {
           success: true,
           mb_id: loginId,
           mb_name: loginId === "admin" ? "관리자계정" : loginId + "님",
-          mb_level: loginId === "admin" ? 10 : 3,
+          mb_level: loginId === "admin" ? 10 : 4, // Set level 4 so mock user passes starter guard
           mb_9: loginId === "admin" ? "무제한" : "2026-12-31",
+          mb_10: loginId === "admin" ? "adminapikey12345" : "userapikey12345"
         };
       }
 
@@ -74,6 +75,7 @@ export function AppContextProvider({ children }) {
           name: data.mb_name,
           level: data.mb_level,
           expireDate: data.mb_9 === "0000-00-00" || !data.mb_9 ? "무제한" : data.mb_9,
+          apikey: data.mb_10 || "demoapikey1234567890"
         };
         setUserSession(user);
         localStorage.setItem("tuber_user_session", JSON.stringify(user));

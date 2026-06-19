@@ -25,6 +25,10 @@ export default function Sidebar() {
     { name: t("navEntertainment"), path: "/entertainment" },
   ];
 
+  if (userSession && userSession.level >= 4) {
+    menuItems.push({ name: t("starter_title"), path: "/starter" });
+  }
+
   return (
     <>
       {/* Backdrop overlay */}
